@@ -2,7 +2,6 @@ class Graph:
     def __init__(self, nodes=[]):
         """
         Initializes a graph with an optional list of nodes.
-
         Parameters:
         -----------
         nodes: list, optional
@@ -12,48 +11,51 @@ class Graph:
         self.graph = dict([(n, []) for n in nodes])
         self.nb_nodes = len(nodes)
         self.nb_edges = 0
-
-    def add_edge(self, node1, node2, power_min, dist=1):
-        """
-        Adds an edge to the graph between two nodes, along with the minimum power and distance between the nodes.
-
-        Parameters:
-        -----------
-        node1: NodeType
-            The first end (node) of the edge.
-        node2: NodeType
-            The second end (node) of the edge.
-        power_min: numeric (int or float)
-            The minimum power required to traverse this edge.
-        dist: numeric (int or float), optional
-            The distance between node1 and node2 on the edge. Default is 1.
-        """
-        # Adds new nodes to the list of nodes in the graph, if necessary
-        if node1 not in self.nodes:
-            self.nodes.append(node1)
-            self.nb_nodes += 1
-        if node2 not in self.nodes:
-            self.nodes.append(node2)
-            self.nb_nodes += 1
-        # Adds edge to the graph
-        self.graph[node1] = self.graph.get(node1, []) + [[node2, power_min, dist]]  # Add node2 as a neighbor of node1, along with the power and distance values
-        self.graph[node2] = self.graph.get(node2, []) + [[node1, power_min, dist]]  # Add node1 as a neighbor of node2, along with the power and distance values
-        # Increment the edge count
-        self.nb_edges += 1
-
+    
     def __str__(self):
-        """
-        Prints the graph as a list of neighbors for each node (one per line).
-        """
+        """Prints the graph as a list of neighbors for each 
+        node (one per line)"""
         if not self.graph:
-            output = "The graph is empty"
+            output = "The graph is empty"            
         else:
-            output = f"The graph has {self.nb_nodes} nodes and {self.nb_edges} edges.\n"
+            output = f"The graph has {self.nb_nodes} nodes \
+            and {self.nb_edges} edges.\n"
             for source, destination in self.graph.items():
                 output += f"{source}-->{destination}\n"
         return output
+    
+    def add_edge(self, node1, node2, power_min, dist=1):
+        """
+        Adds an edge to the graph. Graphs are not oriented, 
+        hence an edge is added to the adjacency list of both end nodes. 
 
-    def get_path_with_power(self, source, destination, power):
+        Parameters: 
+        -----------
+        node1: NodeType
+            First end (node) of the edge
+        node2: NodeType
+            Second end (node) of the edge
+        power_min: numeric (int or float)
+            Minimum power on this edge
+        dist: numeric (int or float), optional
+            Distance between node1 and node2 on the edge. Default is 1.
+        """
+        # Adds new nodes in the list
+        if node1 not in self.nodes:
+            self.nodes.append(node1)
+            self.nb_nodes += 1
+        if node2 not in self.nodes: 
+            self.nodes.append(node2)
+            self.nb_nodes += 1
+        # Adds edge to the graph
+        self.graph[node1] = self.graph.get(node1, []) +\
+            [[node2, power_min, dist]]
+        self.graph[node2] = self.graph.get(node2, []) +\
+            [[node1, power_min, dist]]
+        # An edge has been created
+        self.nb_edges += 1
+
+    def get_path_with_power(self, src, dest, power):
         """
         The algorithm goes through every nodes and for each node, 
         it browses every edges thus the complexity is in O(V.E) 
@@ -61,22 +63,22 @@ class Graph:
         Only takes road with the minimal distance 
 
         Args:
-            source (int): the source of the road
-            destination (int): the destination of the road
+            src (int): the source of the road
+            dest (int): the destination of the road
             power (int): the power of the truck
 
         Returns:
             list: Contains the different nodes which compose the road 
         """
-        result = [[]]
+        res = [[]]
         visit = []
         self.minimal_length = float('inf')
 
-        def road(node, current, length):
-            if node == destination:
+        def road(node, curr, length):
+            if node == dest:
                 if length < self.minimal_length:
                     self.minimal_length = length
-                    result[0] = current
+                    res[0] = curr
                 return
             if node in visit: 
                 return 
@@ -84,9 +86,9 @@ class Graph:
                 visit.append(node)
                 for neighbor in self.graph[node]:
                     if neighbor[1] <= power:
-                        road(neighbor[0], current+[neighbor[0]], length + neighbor[2])
-        road(source, [source], 0)
-        return (result[0], "distance = " + str(self.minimal_length)) if result[0] else None
+                        road(neighbor[0], curr+[neighbor[0]], length + neighbor[2])
+        road(src, [src], 0)
+        return res[0] if res[0] else None
     
     def connected_components(self):
         """
@@ -109,31 +111,47 @@ class Graph:
         For instance, for network01.in: 
         {frozenset({1, 2, 3}), frozenset({4, 5, 6, 7})}
         """
-        return set(map(frozenset, self.connected_components()))
+        result = set()
+
+        def road(node, curr):
+                if node in visit: 
+                    return 
+                else: 
+                    visit.add(node)
+                    for neighbor in self.graph[node]:
+                         road(neighbor[0], curr+[neighbor[0]])
+        
+        for node in self.graph.keys():
+            if node not in result:
+                visit = set()
+                road(node, [node])
+                result.add(frozenset(visit))
+                
+        return result 
     
-    def min_power(self, source, destination):
+    def min_power(self, src, dest):
         """
         Should return path, min_power. 
         The algorithm has the same complexity as get_path_with_power
         """
-        result = [[], 0]
+        res = [[], 0]
         self.minimal_power = float('inf')
 
-        def road(node, current, power):
-            if node == destination:
+        def road(node, curr, power):
+            if node == dest:
                 if self.minimal_power > power:
                     self.minimal_power = power
-                    result[0] = current
-                    result[1] = power
+                    res[0] = curr
+                    res[1] = power
                 return
-            if node in current[:len(current)-1]: 
+            if node in curr[:len(curr)-1]: 
                 return 
             else: 
                 for neighbor in self.graph[node]:
                     temp = max(power, neighbor[1])
-                    road(neighbor[0], current+[neighbor[0]], temp)
-        road(source, [source], 0)
-        return result[0], " minimal power = " + str(result[1]) if result else None
+                    road(neighbor[0], curr+[neighbor[0]], temp)
+        road(src, [src], 0)
+        return res if res else None
 
 
 def graph_from_file(filename):
@@ -163,16 +181,16 @@ def graph_from_file(filename):
         # Selects lines 
         L = text.split('\n')
         # Creates the graph according to the correct format
-        nb_nodes, nb_edges = L[0].split(' ')
+        nb_nodes = L[0].split(' ')[0]
         nodes = [i+1 for i in range(int(nb_nodes))]
         G = Graph(nodes)
         # Builds edges between nodes 
         for i in range(1, len(L)):
             values = L[i].split(' ')
-            if len(values) == 4:    
+            if len(values) == 4: #checks if a distance is mentionned
                 node1, node2, power_min, dist = values
                 G.add_edge(int(node1), int(node2), int(power_min), int(dist))
-            else:
+            else: #the distance is not mentionned
                 node1, node2, power_min = values
                 G.add_edge(int(node1), int(node2), int(power_min))
         return G
