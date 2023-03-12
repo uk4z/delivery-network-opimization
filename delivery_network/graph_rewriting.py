@@ -37,21 +37,20 @@ def set_edges(graph_edges, nodes):
             distance = 1
         node1 = get_node(node1_value, nodes)
         node2 = get_node(node2_value, nodes)
-        new_edge = add_edge(node1, node2, power, distance)
+        new_edge = Edge(node1, node2, power, distance)
+        add_edge_to_Graph(new_edge)
         edges.append(new_edge)
-        
+
     return edges
 
 def get_node(value, nodes):
     return nodes[value] 
-    
-def add_edge(node1=None, node2=None, power=0, distance=1):
-    node1.set_neighbor(node2)
-    node2.set_neighbor(node1)
-    new_edge = Edge(node1, node2, power, distance)
-    node1.edges.append(new_edge)
-    node2.edges.append(new_edge)
-    return new_edge
+
+def add_edge_to_Graph(edge):
+    node1 = edge.node1
+    node2 = edge.node2
+    node1.edges.append(edge)
+    node2.edges.append(edge)
 
 def show_graph(edges):
     if Graph.nb_nodes == 0:
@@ -93,35 +92,34 @@ class Graph:
         self.neighbors = neighbors or {}
         self.edges = edges or []
         Graph.nb_nodes += 1
-        self.peres = {}
-        self.distances = {self : 0}
-        self.already_processed = {self : True}
     
     def set_neighbor(self, node):
         if node not in self.neighbors:
             self.neighbors[node.value] = node 
 
     def shortest_route_with_power(self, destination, nodes): 
+        self.peres = {}
+        self.distances = {self : 0}
+        self.already_processed = {self : True}
+        
         dijkstra(self, nodes)
+
         end_to_start_route = [destination.value]
         distance = self.distances[destination]
         while destination != self: 
-            pere = self.peres[destination]
-            end_to_start_route.append(pere.value)
-        start_to_end_route = route[::-1]
-        return [start_to_end_route, distance]
-        
+            destination = self.peres[destination]
+            end_to_start_route.append(destination.value)
+        start_to_end_route = end_to_start_route[::-1]
+        return [start_to_end_route, distance]  
 
-def dijkstra(root):
-    from collections import deque
-    reach_nodes = deque()
-    reach_nodes.append((0,root))
-    while not reach_nodes.empty():
-        sorted(reach_nodes, key=lambda tuple: tuple[0])
-        node = reach_nodes.pop()[1]
+def dijkstra(root, nodes):
+    reach_nodes = FibonacciHeap()
+    reach_nodes.insert_Node(root.value, 0)
+    while not reach_nodes.is_Empty():
+        node_value = reach_nodes.extract_min()
+        node = get_node(node_value, nodes)
         root.already_processed[node] = True
         visit_neighbors(root, node, reach_nodes)
-    return root.peres, root.distances 
 
 def find_neighbor_in_edge(node, edge):
     if edge.node1 != node:
@@ -129,9 +127,6 @@ def find_neighbor_in_edge(node, edge):
     else: 
         return edge.node2
     
-def uptade_priorityQueue(priorityQueue, element):
-    priorityQueue.put(element)
-
 def visit_neighbors(root, node, reach_nodes):
     for edge in node.edges:
         neighbor = find_neighbor_in_edge(node, edge)
@@ -140,8 +135,11 @@ def visit_neighbors(root, node, reach_nodes):
                 or root.distances[neighbor] > root.distances[node] + edge.distance)):
             root.peres[neighbor] = node
             root.distances[neighbor] = root.distances[node] + edge.distance
-            reach_nodes.remove()
-            reach_nodes.append(root.distances[neighbor], neighbor)
+            heap_node = reach_nodes.get_node_in_heap(neighbor.value)
+            if not reach_nodes.have_node(heap_node):
+                reach_nodes.insert_Node(neighbor.value, root.distances[neighbor])
+            else:
+                reach_nodes.decrease_key(heap_node, root.distances[neighbor])
 
 class Edge:
     nb_edges = 0
@@ -158,10 +156,14 @@ class Edge:
         destination = self.node2.value
         return f"{source} --- {destination}"
 
-network_filename = "input/network.00.in"
+import sys 
+sys.path.append("D:\Coding files\Delivery network\Fibonacci Heap")
+from heap import FibonacciHeap
 
-#graph_nodes, graph_edges = graph_from_file(network_filename)
+network_filename = "input/network.01.in"
 
-#node = graph_nodes[1]
-#print(node.shortest_route_with_power(graph_nodes[3], graph_nodes))
 
+graph_nodes, graph_edges = graph_from_file(network_filename)
+
+node = graph_nodes[1]
+print(node.shortest_route_with_power(graph_nodes[2], graph_nodes))
