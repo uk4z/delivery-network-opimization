@@ -211,3 +211,70 @@ def plot_graph(g):
 
     s = Source(temp, filename="Graph.gv", format="png")
     s.view()
+    
+    
+    
+    
+    
+def find(parent, i):
+    if parent[i] != i:
+      # Reassignment of node's parent to root node as
+      # path compression requires
+        parent[i] = find(parent, parent[i])
+    return parent[i]
+    
+def union(parent, rank, x, y):
+
+    if rank[x-1] < rank[y-1]:
+        parent[x-1] = y
+    elif rank[x-1] > rank[y-1]:
+        parent[y-1] = x
+    else:
+        parent[y-1] = x
+        rank[x-1] += 1
+
+def kruskal(graph):
+        
+    result = Graph()
+    tree_edges = []
+
+    edges = []
+    visit = set()
+    for node, neighbors in g.graph.items():
+        for i in range(len(neighbors)):
+            neighbor =  neighbors[i][0]
+            if neighbor in visit:
+                power = neighbors[i][1]
+                edges.append([(node, neighbor), power]) 
+        visit.add(node)
+    sorted_edges = sorted(edges, key=lambda edge: edge[1])
+
+    parent = {}
+    rank = []
+
+    for node in range(1, graph.nb_nodes+1):
+        parent.append(node)
+        rank.append(0)
+
+    nb_edges = 0 
+    i = 0
+    while nb_edges < graph.nb_nodes - 1:
+        edge, power = sorted_edges[i]
+        node1, node2 = edge
+        i = i + 1
+        x = find(parent, node1)
+        y = find(parent, node2)
+
+        if x != y:
+            nb_edges = nb_edges + 1
+            tree_edges.append([(node1, node2), power])
+            result.add_edge(node1, node2, power)
+            union(parent, rank, x, y)
+        # Else discard the edge
+
+    minimumCost = 0
+    for edge, power in tree_edges:
+        minimumCost += power
+    print("The minimum cost is", str(minimumCost))
+    return result
+
