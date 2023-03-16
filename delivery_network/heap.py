@@ -1,270 +1,285 @@
+import math
+
+# Creating a class to represent a node in the heap
+
 class FibonacciHeap:
     def __init__(self):
-        self.min_node = None 
-    
+        # Creating min pointer as "mini"
+        self.mini = None
+        # Declare an integer for number of nodes in the heap
+        self.nb_nodes = 0
+
     class Node:
-        def __init__(self, value, key):
-            self.value = value 
-            self.parent = None 
-            self.child = None
-            self.left = self.right = self
-            self.key = key
+        def __init__(self, wrap, key):
+            self.wrap = wrap
+            self.parent = None # Parent pointer
+            self.child = None # Child pointer
+            self.left = self.right = self # Pointer to the node on the left and on the right
+            self.key = key # Value of the node
+            self.degree = 0 # Degree of the node
+            self.mark = '' # Black or white mark of the node
+            self.has_been_visited = False # Flag for assisting in the Find node function
         
-        def have_neighbors(self):
-            if self.right != self:
-                return True
-            return False
-        
-        def set_neighbor(self, node):
-            if not self.have_neighbors():
-                self.right = self.left = node
-                node.left = node.right = self
-
-        def add_neighbor(self, node):
-            if self.have_neighbors():
-                node.left = self
-                node.right = self.right
-                self.right = node
-                node.right.left = node
-
-        def new_neighbor(self, node):
-            if self.have_neighbors():
-                self.add_neighbor(node)
-            else: 
-                self.set_neighbor(node)
-
-        def have_child(self):
-            if self.child :
-                return True
-            return False
-    
-        def set_child(self, node):
-            if not self.have_child():
-                self.child = node
-                node.parent = self
-
-        def add_child(self, node):
-            if self.child:
-                node.left = self.child
-                node.right = self.child.right
-                self.child.right = node
-                node.right.left = node
-                node.parent = self
-
-        def new_child(self, node):
-            if self.have_child():
-                self.add_child(node)
-            else: 
-                self.set_child(node)
-        
-        def get_min_child(self):
-            if not self.have_child():
-                return None 
-            min_child = self.child
-            child = min_child.right
-            while  child != self.child :
-                if child.key < min_child.key:
-                    min_child = child
-                child = child.right
-            return min_child
-        
-        def kill_children(self):
-            child = self.child.right 
-            while  child != self.child :
-                child.parent = None  
-                child = child.right 
-            self.child.parent = None
-            self.child = None 
-        
-        def get_min_neighbor(self):
-            if not self.have_neighbors():
-                return None
-            neighbor = self.right
-            min_neighbor = neighbor
-            while neighbor != self:
-                if neighbor.key < min_neighbor.key:
-                    min_neighbor = neighbor
-                neighbor = neighbor.right
-            return min_neighbor
-
-        def kill_neighbors(self):
-            self.right.left = self.left
+        # Linking the heap nodes in parent child relationship
+        def Fibonnaci_link(self, parent):
+            if self == parent: 
+                return
             self.left.right = self.right
-            self.right = self.left = self 
-
-        def get_depth(self):
-            initial_depth = 0
-            def depth(node, current_depth):
-                if not node.have_child(): 
-                    return current_depth
-                else:
-                    current_depth += 1
-                    depths = []
-                    child = node.child
-                    child_depth = depth(child, current_depth)
-                    depths.append(child_depth)
-                    neighbor = child.right
-                    while neighbor != child:
-                        neighbor_depth = depth(neighbor, current_depth)
-                        depths.append(neighbor_depth)
-                        neighbor = neighbor.right
-                    return max(depths)
-            return depth(self, initial_depth)
+            self.right.left = self.left
+            self.right = self.left = self
+            self.parent = parent
+            if (parent.child == None):
+                parent.child = self
+            self.right = parent.child
+            self.left = parent.child.left
+            parent.child.left.right = self
+            parent.child.left = self
+            if self.key < parent.child.key:
+                parent.child = self
+            parent.degree+=1
         
-        def same_depth(self, node):
-            return self.get_depth() == node.get_depth() 
-
-        def map(self):
-            if self.have_neighbors():
-                neighbor = self.right 
-                while self.have_neighbors() and neighbor != self:
-                    if self.same_depth(neighbor):
-                        neighbor.kill_neighbors()
-                        self.new_child(neighbor)
-                        neighbor = self.right
-                    neighbor = neighbor.right
-
-        def change_child_from_children(self):
-            if self.have_child():
-                self.child = self.child.right
-        
-        def have_this_neighbor(self, node):
-            if self.have_neighbors():
-                neighbor = self.right
-                while neighbor != self:
-                    if neighbor == node:
-                        return True 
-            return False 
-        
-        def neighbors(self):
-            neighbors = [self]
-            if self.have_neighbors():
-                neighbor = self.right
-                while neighbor != self:
-                   neighbors.append(neighbor)
-                   neighbor = neighbor.right
-            return neighbors
-
-        def _find_node(self, root_list, node):
-            if self is None or not root_list:
-                return False
-            if node in root_list:
-                return True
-            else :
-                for root in root_list:
-                    if root.have_child():
-                        child_list = root.child.neighbors()
-                    else:
-                        child_list = [] 
-                    if root._find_node(child_list, node):
-                        return True
+        # Function to find the given node
+        def Find(self, key):
+            if (not self) or ((not self.child) and self.right.has_been_visited):
                 return False 
+            if (self.key == key):
+                return True
             
-        def _get_node_by_value(self, root_list, node_value):
-            if self is None or not root_list:
-                return None
-            for root in root_list:
-                if root.value == node_value:
-                    return root
-            else :
-                for root in root_list:
-                    if root.have_child():
-                        child_list = root.child.neighbors()
-                    else:
-                        child_list = [] 
-                    node = root._get_node_by_value(child_list, node_value)
-                    if node is not None:
-                        return node
+            self.has_been_visited = True 
+            if self.child and self.right.has_been_visited:
+                return self.child.Find(key)
+            elif (not self.right.has_been_visited) and (not self.child):
+                return self.right.Find(key)
+            elif self.child and (not self.right.has_been_visited):
+                return self.child.Find(key) or self.right.Find(key)
+
+
         
-    def is_Empty(self):
-        return self.min_node is None 
-    
-    def have_node(self, node):
-        if not self.min_node:
-            return False
-        min_node = self.min_node
-        neighbors = min_node.neighbors()
-        return min_node._find_node(neighbors, node)
-    
-    def get_node_in_heap(self, node_value):
-        if not self.min_node:
-            return None
-        min_node = self.min_node
-        neighbors = min_node.neighbors()
-        return min_node._get_node_by_value(neighbors, node_value)
-    
-    def insert_Node(self, value, key):
-        new_node = self.Node(value, key)
-        if self.is_Empty():
-            self.min_node = new_node
-        else:
-            if key < self.min_node.key:
-                new_node.new_child(self.min_node)
-                self.min_node = new_node
-            elif key > self.min_node.key:
-                self.min_node.new_child(new_node)
-            else: 
-                self.min_node.new_neighbor(new_node)
-
-    def get_min(self):
-        if self.is_Empty():
-            return None
-        else: 
-            return self.min_node 
-    
-    def union(self, heap):
-        if not self.min_node:
-            self.min_node = heap.min_node
-
-        self.min_node.new_neighbor(heap.min_node)
-        if self.min_node.key > heap.min_node.key:
-            self.min_node = heap.min_node
-        else:
-            heap.min_node = self.min_node
-
-    def heap_reorganisation(self):
-        if not self.is_Empty():
-            min_node = self.min_node
-            if min_node.have_neighbors():
-                min_node.map()
-                neighbor = min_node.right
-                while min_node.have_neighbors() and neighbor != min_node:
-                    neighbor.map()
-                    neighbor = neighbor.right
-                
-    def cut(self, node, parent):
-        if node == parent.child:
-            if node.have_neighbors():
-                parent.change_child_from_children()
-                node.kill_neighbors()
-            else :
-                parent.child = None  
-            node.parent = None      
-        self.min_node.new_neighbor(node)
-
-    def decrease_key(self, node, new_key):
-        node.key = new_key
-        parent = node.parent
-        if parent and node.key < parent.key:
-            self.cut(node, parent)
-        if node.key < self.min_node.key:
-            self.min_node = node
-
-    def extract_min(self):
-        if not self.get_min():
-            return None
-        else:
-            output = self.min_node.value
-            min_node = self.min_node
-            self.min_node = min_node.get_min_neighbor()
-            min_node.kill_neighbors()
             
-            if min_node.have_child():
-                heap = FibonacciHeap()
-                min_child = min_node.get_min_child()
-                min_node.kill_children()
-                heap.min_node = min_child
-                self.union(heap)
-            self.heap_reorganisation()
+    def is_empty(self):
+        return self.nb_nodes == 0 
+    
+    # Function to insert a node in heap
+    def insertion(self, wrap, key):
+        new_node = FibonacciHeap.Node(wrap, key)
+        new_node.mark = 'W'
+        new_node.left = new_node
+        new_node.right = new_node
+        if (self.mini != None):
+            self.mini.left.right = new_node
+            new_node.right = self.mini
+            new_node.left = self.mini.left
+            self.mini.left = new_node
+            if (new_node.key < self.mini.key):
+                self.mini = new_node
+        else:
+            self.mini = new_node
+        self.nb_nodes+=1
 
-            return output
+    def have_node(self, wrap_node):
+        if self.is_empty():
+            return False
+        return find(self.mini, wrap_node)
+    
+    def get_node_by_value(self, wrap):
+        if self.is_empty():
+            return None 
+        return get_node_by_key(self.mini, wrap)
+
+        
+    # Consolidating the heap
+    def Consolidate(self):
+        
+        max_degree = int(math.log2(self.nb_nodes)) + 1
+        arr = [None] * (max_degree + 1)
+        mini = self.mini
+        ptr4 = mini
+        while True:
+            ptr4 = ptr4.right
+            degree = mini.degree
+            while (arr[degree] != None):
+                node = arr[degree]
+                if (mini.key > node.key):
+                    ptr3 = mini
+                    mini = node
+                    node = ptr3
+                if (node == self.mini):
+                    self.mini = mini
+                node.Fibonnaci_link(mini)
+                if (mini.right == mini):
+                    self.mini = mini
+                arr[degree] = None
+                degree+=1
+            arr[degree] = mini
+            mini = mini.right
+            if (mini == self.mini):
+                break
+
+        self.mini = None
+        for degree in range(max_degree+1):
+            if (arr[degree] != None):
+                arr[degree].left = arr[degree]
+                arr[degree].right = arr[degree]
+                if (self.mini != None) :
+                    self.mini.left.right = arr[degree]
+                    arr[degree].right = self.mini
+                    arr[degree].left = self.mini.left
+                    self.mini.left = arr[degree]
+                    if (arr[degree].key < self.mini.key):
+                        self.mini = arr[degree]
+                else:
+                    self.mini = arr[degree]
+                if self.mini == None:
+                    self.mini = arr[degree]
+                elif arr[degree].key < self.mini.key:
+                    self.mini = arr[degree]
+        
+
+    # Function to extract self.minimum node in the heap
+    def extract_min(self):
+        if self.is_empty():
+            return None 
+        else:
+            mini = self.mini
+            output = mini.wrap
+            pntr = mini
+            if (mini.child != None):
+
+                child = mini.child
+                while(True):
+                    pntr = child.right
+                    self.mini.left.right = child
+                    child.right = self.mini
+                    child.left = self.mini.left
+                    self.mini.left = child
+                    if child.key < self.mini.key:
+                        self.mini = child
+                    child.parent = None
+                    child = pntr
+                    if (pntr == mini.child):
+                        break
+
+            mini.left.right = mini.right
+            mini.right.left = mini.left
+            self.mini = mini.right
+            if mini == mini.right and mini.child == None:
+                self.mini = None
+            else:
+                self.mini = mini.right
+                self.Consolidate()
+            self.nb_nodes-=1
+        return output
+
+
+
+    # Cutting a node in the heap to be placed in the root list
+    def Cut(self, node, parent):
+        if (node == node.right):
+            parent.child = None
+
+        node.left.right = node.right
+        node.right.left = node.left
+        if (node == parent.child):
+            parent.child = node.right
+
+        parent.degree -= 1
+        node.right = node
+        node.left = node
+        self.mini.left.right = node
+        node.right = self.mini
+        node.left = self.mini.left
+        self.mini.left = node
+        node.parent = None
+        node.mark = 'B'
+
+    # Recursive cascade cutting function
+    def Cascase_cut(self, node):
+
+        parent = node.parent
+        if (parent != None):
+            if (node.mark == 'W'):
+                node.mark = 'B'
+            else:
+                self.Cut(node, parent)
+                self.Cascase_cut(parent)
+
+    # Function to decrease the value of a node in the heap
+    def Decrease_key(self, node_key, new_key):
+        if self.is_empty():
+            raise Exception("The Heap is Empty")
+
+        if not self.have_node(node_key):
+            raise Exception("Node is not in the Heap")
+
+        node = self.get_node_by_value(node_key)
+        node.key = new_key
+
+        parent = node.parent
+        if (parent != None and node.key < parent.key):
+            self.Cut(node, parent)
+            self.Cascase_cut(parent)
+
+        if node.key < self.mini.key:
+            self.mini = node
+
+
+    # Deleting a node from the heap
+    def Deletion(self, key):
+
+        if (self.mini == None):
+            print("The heap is empty")
+        else:
+            # Decreasing the value of the node to 0
+            self.mini.Find(key, 0)
+
+            # Calling Extract_min function to
+            # delete self.minimum value node, which is 0
+            self.Extract_min()
+            print("Key Deleted")
+
+
+    # Function to display the heap
+    def display(self):
+        ptr = self.mini
+        if (ptr == None):
+            print("The Heap is Empty")
+
+        else:
+            print("The root nodes of Heap are: ")
+            while(True):
+                print(ptr.wrap.value,end='')
+                ptr = ptr.right
+                if (ptr != self.mini):
+                    print("-->",end='')
+                if not(ptr != self.mini and ptr.right != None):
+                    break
+            print()
+            print(f"The heap has {self.nb_nodes} nodes")
+
+
+def find(node, wrap):
+    if not node:
+        return False
+    neighbor = node
+    while True:
+        find_node = find(neighbor.child, wrap)
+        if neighbor.wrap == wrap or find_node:
+            return True
+        neighbor = neighbor.right
+        if neighbor == node:
+            return False
+        
+def get_node_by_key(node, wrap):
+    if not node:
+        return None
+    neighbor = node
+    while True:
+        if neighbor.wrap == wrap:
+            return neighbor.wrap
+        get_node = get_node_by_key(neighbor.child, wrap)
+        if get_node is not None:
+            return get_node
+        neighbor = neighbor.right
+        if neighbor == node:
+            return None
+
