@@ -3,7 +3,6 @@ def graph_from_file(filename):
     graph = Graph()
     set_nodes_to_graph(graph_nodes, graph)
     set_edges_to_graph(graph_edges, graph)
-    print(show_graph(graph))
     return graph
 
 def open_file(filename):
@@ -46,7 +45,9 @@ def add_edge_to_Graph(edge, graph):
     node1 = edge.node1
     node2 = edge.node2
     node1.edges.append(edge)
+    node1.neighbors[node2.value] = node2
     node2.edges.append(edge)
+    node2.neighbors[node1.value] = node1
 
 def show_graph(graph):
     if graph.nb_nodes() == 0:
@@ -95,12 +96,14 @@ class Graph:
             if node not in self.neighbors:
                 self.neighbors[node.value] = node 
 
-        def shortest_route_with_power(self, destination): 
+        def shortest_route(self, destination): 
             self.peres = {}
             self.distances = {self : 0}
             self.already_processed = {self : True}
             graph.dijkstra(self)
             end_to_start_route = [destination.value]
+            if destination.value not in self.connected_components():
+                raise Exception("Source is not linked to destination")
             distance = self.distances[destination]
             while destination != self: 
                 destination = self.peres[destination]
@@ -108,19 +111,19 @@ class Graph:
             start_to_end_route = end_to_start_route[::-1]
             return [start_to_end_route, distance]  
         
-        def visit_neighbors(root, node, reach_nodes):
+        def visit_neighbors(self, node, reach_nodes):
             for edge in node.edges:
                 neighbor = edge.find_neighbor_in_edge(node)
-                if (neighbor not in root.already_processed 
-                    and (neighbor not in root.distances 
-                        or root.distances[neighbor] > root.distances[node] + edge.distance)):
-                    root.peres[neighbor] = node
-                    root.distances[neighbor] = root.distances[node] + edge.distance
-                    heap_node = reach_nodes.get_node_in_heap(neighbor.value)
-                    if not reach_nodes.have_node(heap_node):
-                        reach_nodes.insert_Node(neighbor.value, root.distances[neighbor])
+                if (neighbor not in self.already_processed 
+                    and (neighbor not in self.distances 
+                        or self.distances[neighbor] > self.distances[node] + edge.distance)):
+                    self.peres[neighbor] = node
+                    self.distances[neighbor] = self.distances[node] + edge.distance
+                    if not reach_nodes.have_node(neighbor):
+                        reach_nodes.insertion(neighbor, self.distances[neighbor])
                     else:
-                        reach_nodes.decrease_key(heap_node, root.distances[neighbor])
+                        reach_nodes.Decrease_key(neighbor, self.distances[neighbor])
+                
 
         def connected_components(self):
             visit = set() 
@@ -147,10 +150,9 @@ class Graph:
             
     def dijkstra(self, root):
         reach_nodes = FibonacciHeap()
-        reach_nodes.insert_Node(root.value, 0)
-        while not reach_nodes.is_Empty():
-            node_value = reach_nodes.extract_min()
-            node = self.get_node(node_value)
+        reach_nodes.insertion(root, 0)
+        while not reach_nodes.is_empty():
+            node = reach_nodes.extract_min()
             root.already_processed[node] = True
             root.visit_neighbors(node, reach_nodes)
 
@@ -159,14 +161,3 @@ class Graph:
     
     def nb_edges(self):
         return len(self.edges)
-    
-import sys 
-sys.path.append("D:\Coding files\Delivery network\Fibonacci Heap")
-from heap import FibonacciHeap
-
-network_filename = "input/network.00.in"
-
-
-graph = graph_from_file(network_filename)
-
-print(graph.nodes[1].shortest_route_with_power(graph.nodes[3]))
