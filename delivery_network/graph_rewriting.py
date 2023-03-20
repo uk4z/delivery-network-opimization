@@ -157,15 +157,3 @@ def visit_neighbors(node, heap, peres, distances, already_processed):
                     heap.Decrease_key(neighbor, distances[neighbor])
             
 
-import sys 
-sys.path.append("D:\Coding files\Delivery network\Fibonacci Heap")
-from Fibonacci_Tree import *
-
-network_filename = "input/network.12.in"
-
-graph = graph_from_file(network_filename)
-#print(graph.nodes[1].shortest_route(graph.nodes[9]))
-for i in range(1,21):
-    for j in range(1,21):
-        print(i, j)
-        print(graph.nodes[i].shortest_route(graph.nodes[j]))
