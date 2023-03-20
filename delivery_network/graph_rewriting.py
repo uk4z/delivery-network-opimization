@@ -24,7 +24,6 @@ def get_data_from_line(line):
     return processed_data
 
 def set_edges_to_graph(graph_edges, graph):
-    edges = []
     for line in graph_edges:
         edge = get_data_from_line(line)
         nb_info = len(edge)
@@ -38,7 +37,6 @@ def set_edges_to_graph(graph_edges, graph):
         new_edge = Graph.Edge(graph, node1, node2, power, distance)
         add_edge_to_Graph(new_edge, graph)
 
-    return edges
 
 def add_edge_to_Graph(edge, graph):
     graph.edges.append(edge)
@@ -92,72 +90,82 @@ class Graph:
             self.edges = edges or []
             self.graph = graph
         
+        def is_connected(self, target):
+            visited = set()
+            stack = [self]
+            while stack:
+                node = stack.pop()
+                if node == target:
+                    return True
+                visited.add(node)
+                for neighbor in node.neighbors.values():
+                    if neighbor not in visited:
+                        stack.append(neighbor)
+            return False
+
         def set_neighbor(self, node):
             if node not in self.neighbors:
                 self.neighbors[node.value] = node 
+        
+        
 
         def shortest_route(self, destination): 
-            self.peres = {}
-            self.distances = {self : 0}
-            self.already_processed = {self : True}
-            graph.dijkstra(self)
+            peres = {node : None for node in self.graph.nodes.values()}
+            distances = {node : -1 for node in self.graph.nodes.values()}
+            distances[self] = 0
+            already_processed = {node : False for node in self.graph.nodes.values()}
+            if not self.is_connected(destination):
+                raise Exception("Nodes are not connected.")
+            dijkstra(self, peres, distances, already_processed)
             end_to_start_route = [destination.value]
-            if destination.value not in self.connected_components():
-                raise Exception("Source is not linked to destination")
-            distance = self.distances[destination]
+            distance = distances[destination]
             while destination != self: 
-                destination = self.peres[destination]
+                destination = peres[destination]
                 end_to_start_route.append(destination.value)
             start_to_end_route = end_to_start_route[::-1]
-            return [start_to_end_route, distance]  
-        
-        def visit_neighbors(self, node, reach_nodes):
-            for edge in node.edges:
-                neighbor = edge.find_neighbor_in_edge(node)
-                if (neighbor not in self.already_processed 
-                    and (neighbor not in self.distances 
-                        or self.distances[neighbor] > self.distances[node] + edge.distance)):
-                    self.peres[neighbor] = node
-                    self.distances[neighbor] = self.distances[node] + edge.distance
-                    if not reach_nodes.have_node(neighbor):
-                        reach_nodes.insertion(neighbor, self.distances[neighbor])
-                    else:
-                        reach_nodes.Decrease_key(neighbor, self.distances[neighbor])
-                
+            return start_to_end_route, distance 
 
-        def connected_components(self):
-            visit = set() 
-            def helper(node):
-                if node.value in visit:
-                    return
-                else:
-                    visit.add(node.value)
-                    for neighbor in node.neighbors.values():
-                        helper(neighbor)
-            helper(self)
-            return visit
-
-    def connected_components_set(self):
-        output = set()
-        for node in self.nodes.values():
-            connected_nodes = node.connected_components()
-            if connected_nodes not in output:
-                output.add(frozenset(connected_nodes))
-        return output
 
     def get_node(self,value):
         return self.nodes[value] 
-            
-    def dijkstra(self, root):
-        reach_nodes = FibonacciHeap()
-        reach_nodes.insertion(root, 0)
-        while not reach_nodes.is_empty():
-            node = reach_nodes.extract_min()
-            root.already_processed[node] = True
-            root.visit_neighbors(node, reach_nodes)
-
+        
     def nb_nodes(self):
         return len(self.nodes)
     
     def nb_edges(self):
         return len(self.edges)
+    
+def dijkstra(root, peres, distances, already_processed):
+    heap = FibonacciHeap()
+    heap.insertion(root, 0)
+    while heap.min_node:
+        node = heap.extract_min()
+        already_processed[node] = True
+        visit_neighbors(node, heap, peres, distances, already_processed)
+
+def visit_neighbors(node, heap, peres, distances, already_processed):
+        for edge in node.edges:
+            neighbor = edge.find_neighbor_in_edge(node)
+            if (not already_processed[neighbor]
+                and (distances[neighbor] == -1 
+                    or distances[neighbor] > distances[node] + edge.distance)):
+                peres[neighbor] = node
+                distances[neighbor] = distances[node] + edge.distance
+                if not heap.have_node(neighbor):
+                    heap.insertion(neighbor, distances[neighbor])
+                else:
+                    heap.Decrease_key(neighbor, distances[neighbor])
+            
+
+import sys 
+sys.path.append("D:\Coding files\Delivery network\Fibonacci Heap")
+from Fibonacci_Tree import *
+
+network_filename = "input/network.12.in"
+
+graph = graph_from_file(network_filename)
+#print(graph.nodes[1].shortest_route(graph.nodes[9]))
+for i in range(1,21):
+    for j in range(1,21):
+        print(i, j)
+        print(graph.nodes[i].shortest_route(graph.nodes[j]))
