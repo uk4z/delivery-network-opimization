@@ -107,8 +107,6 @@ class Graph:
             if node not in self.neighbors:
                 self.neighbors[node.value] = node 
         
-        
-
         def shortest_route(self, destination): 
             peres = {node : None for node in self.graph.nodes.values()}
             distances = {node : -1 for node in self.graph.nodes.values()}
@@ -119,22 +117,26 @@ class Graph:
             dijkstra(self, peres, distances, already_processed)
             end_to_start_route = [destination.value]
             distance = distances[destination]
-            while destination != self: 
-                destination = peres[destination]
-                end_to_start_route.append(destination.value)
+            node = destination
+            while node != self: 
+                node = peres[node]
+                if not node:
+                    return [], -1
+                end_to_start_route.append(node.value)
             start_to_end_route = end_to_start_route[::-1]
             return start_to_end_route, distance 
 
-
     def get_node(self,value):
         return self.nodes[value] 
-        
-    def nb_nodes(self):
-        return len(self.nodes)
     
-    def nb_edges(self):
-        return len(self.edges)
-    
+    def shortest_path(self, source, destination):
+        output = source.shortest_route(destination)
+        if output[1] == -1:
+            print("The process might take a little while.")
+            path = destination.shortest_route(source)
+            output = (path[0][::-1], path[1]) 
+        return output
+
 def dijkstra(root, peres, distances, already_processed):
     heap = FibonacciHeap()
     heap.insertion(root, 0)
@@ -155,5 +157,3 @@ def visit_neighbors(node, heap, peres, distances, already_processed):
                     heap.insertion(neighbor, distances[neighbor])
                 else:
                     heap.Decrease_key(neighbor, distances[neighbor])
-            
-
