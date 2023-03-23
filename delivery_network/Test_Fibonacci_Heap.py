@@ -41,7 +41,7 @@ class Test_FibonacciHeap(unittest.TestCase):
             heap.insertion(i, i + 1)
             self.assertEqual(heap.min_node.wrap, i)
             nodes.append(heap.min_node)
-        #nodes = [(1, 2), (2, 3), (3, 4), (4, 5), (5, 6), (6, 7), (7, 8), (8, 9), (9, 10), (10, 11)]
+        # nodes = [(1, 2), (2, 3), (3, 4), (4, 5), (5, 6), (6, 7), (7, 8), (8, 9), (9, 10), (10, 11)]
         self.assertEqual(heap.nb_nodes, 10)
         self.assertEqual(nodes[0].right, nodes[-1])
 
@@ -59,7 +59,7 @@ class Test_FibonacciHeap(unittest.TestCase):
         for i in range(1, 11):
             heap.insertion(i, i + 1)
             nodes.append(heap.min_node.left)
-        #nodes = [(1, 2), (2, 3), (3, 4), (4, 5), (5, 6), (6, 7), (7, 8), (8, 9), (9, 10), (10, 11)]
+        # nodes = [(1, 2), (2, 3), (3, 4), (4, 5), (5, 6), (6, 7), (7, 8), (8, 9), (9, 10), (10, 11)]
         self.assertEqual(heap._get_node_by_wrap(10), nodes[-1])
         self.assertIsNone(heap._get_node_by_wrap(234))
 
@@ -69,7 +69,7 @@ class Test_FibonacciHeap(unittest.TestCase):
         for i in range(1, 11):
             heap.insertion(i, i + 1)
             nodes.append(heap.min_node.left)
-        #nodes = [(1, 2), (2, 3), (3, 4), (4, 5), (5, 6), (6, 7), (7, 8), (8, 9), (9, 10), (10, 11)]
+        # nodes = [(1, 2), (2, 3), (3, 4), (4, 5), (5, 6), (6, 7), (7, 8), (8, 9), (9, 10), (10, 11)]
         heap.consolidate()
         self.assertEqual(nodes[-2], heap.min_node.right)
         self.assertEqual(nodes[-3], heap.min_node.child.left.child.left.child)
@@ -80,7 +80,7 @@ class Test_FibonacciHeap(unittest.TestCase):
         for i in range(1, 11):
             heap.insertion(i, i + 1)
             nodes.append(heap.min_node.left)
-        #nodes = [(1, 2), (2, 3), (3, 4), (4, 5), (5, 6), (6, 7), (7, 8), (8, 9), (9, 10), (10, 11)]
+        # nodes = [(1, 2), (2, 3), (3, 4), (4, 5), (5, 6), (6, 7), (7, 8), (8, 9), (9, 10), (10, 11)]
         output = heap.extract_min()
         self.assertEqual(output, 1)
         self.assertEqual(nodes[2], heap.min_node.child)
@@ -92,7 +92,7 @@ class Test_FibonacciHeap(unittest.TestCase):
         for i in range(1, 11):
             heap.insertion(i, i + 1)
             nodes.append(heap.min_node.left)
-        #nodes = [(1, 2), (2, 3), (3, 4), (4, 5), (5, 6), (6, 7), (7, 8), (8, 9), (9, 10), (10, 11)]
+        # nodes = [(1, 2), (2, 3), (3, 4), (4, 5), (5, 6), (6, 7), (7, 8), (8, 9), (9, 10), (10, 11)]
         heap.extract_min()
         heap.decrease_key(9, 1)
         self.assertEqual(heap.min_node, nodes[-2])
