@@ -177,7 +177,6 @@ def get_path_from_peres(source, destination, peres):
     
     return path
 
-
 def graph_from_file(filename):
     nb_nodes, edges_of_graph = open_network_file(filename)
     graph = Graph()
@@ -241,6 +240,5 @@ def set_edge_to_nodes(edge):
         else:
             node2.neighbours[node1].append(edge)
             node1.neighbours[node2].append(edge)
-
 
 
