@@ -100,10 +100,40 @@ class Graph:
 
         distance = distances[destination]
         path = get_path_from_peres(source, destination, peres)
-        
+
         return path, distance 
     
+    def connected_components(self, node_value):
+        node = self._get_node_by_value(node_value)
 
+        visited = set()
+        stack = [node]
+
+        while stack:
+            node = stack.pop()
+            
+            visited.add(node.value)
+                
+            for neighbour in node.neighbours.keys():
+                if neighbour.value not in visited:
+                    stack.append(neighbour)
+
+        return visited
+
+    def connected_components_set(self):
+        result = set()
+
+        for node in self.nodes.values():
+            if len(result) == len(self.nodes):
+                return result 
+            
+            if node.value not in result:
+                connect = self.connected_components(node.value)
+                result.add(frozenset(connect))
+
+        return result
+             
+             
 def dijkstra(source, peres, distances, already_processed):
     heap = FibonacciHeap()
     heap.insertion(source, 0)
