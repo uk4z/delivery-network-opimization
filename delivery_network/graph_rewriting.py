@@ -1,6 +1,7 @@
 import sys 
 sys.path.append("D:\Coding files\Delivery network\Fibonacci Heap")
 from fibonacci_heap import FibonacciHeap
+import collections
 
 class Graph:
     def __init__(self):
@@ -28,11 +29,10 @@ class Graph:
                     return self.node2
                 
     class Node:
-        def __init__(self, value, graph, neighbors=None, edges=None):
+        def __init__(self, value, neighbors=None, edges=None):
             self.value = value
             self.neighbors = neighbors or []
             self.edges = edges or []
-            self.graph = graph
         
         def is_connected(self, target):
             visited = set()
@@ -55,58 +55,83 @@ class Graph:
         def set_neighbor(self, node):
             if node not in self.neighbors:
                 self.neighbors.append(node) 
-        
-        def shortest_route(self, destination): 
-            peres = {node : None for node in self.graph.nodes.values()}
-            distances = {node : -1 for node in self.graph.nodes.values()}
-            distances[self] = 0
-            already_processed = {node : False for node in self.graph.nodes.values()}
-            if not self.is_connected(destination):
-                raise Exception("Nodes are not connected.")
-            dijkstra(self, peres, distances, already_processed)
-            end_to_start_route = [destination.value]
-            distance = distances[destination]
-            node = destination
-            while node != self: 
-                node = peres[node]
-                if not node:
-                    return [], -1
-                end_to_start_route.append(node.value)
-            start_to_end_route = end_to_start_route[::-1]
-            return start_to_end_route, distance 
 
-    def get_node(self,value):
+    def get_node_by_value(self, value):
         return self.nodes[value] 
     
-    def shortest_path(self, source, destination):
-        output = source.shortest_route(destination)
-        if output[1] == -1:
-            path = destination.shortest_route(source)
-            output = (path[0][::-1], path[1]) 
-        return output
+    def get_path(self, source, destination):
+        path, distance = self.shortest_path(source, destination)
 
+        if distance !=  -1:
+            return path, distance 
+        
+        else:
+            path, distance = self.shortest_path(destination, source)
+            new_path = collections.deque()
+
+            for node in path:
+                new_path.appendleft(node)
+
+            return new_path, distance
+
+    def shortest_path(self, source, destination): 
+        peres = {node : None for node in self.nodes.values()}
+        distances = {node : -1 for node in self.nodes.values()}
+        distances[source] = 0
+        already_processed = {node : False for node in self.nodes.values()}
+
+        if not source.is_connected(destination):
+            raise Exception("Nodes are not connected.")
+        
+        dijkstra(source, peres, distances, already_processed)
+
+        distance = distances[destination]
+        path = get_path_from_peres(source, destination, peres)
+        return path, distance 
+    
 
 def dijkstra(source, peres, distances, already_processed):
     heap = FibonacciHeap()
     heap.insertion(source, 0)
+
     while heap.min_node:
         node = heap.extract_min()
         already_processed[node] = True
+
         visit_neighbors(node, heap, peres, distances, already_processed)
 
 def visit_neighbors(node, heap, peres, distances, already_processed):
         for edge in node.edges:
             neighbor = edge.find_neighbor_in_edge(node)
+
             if (not already_processed[neighbor]
                 and (distances[neighbor] == -1 
-                    or distances[neighbor] > distances[node] + edge.distance)):
+                     or distances[neighbor] >= distances[node] + edge.distance)):
                 peres[neighbor] = node
                 distances[neighbor] = distances[node] + edge.distance
-                if not heap.have_wrap(neighbor):
-                    heap.insertion(neighbor, distances[neighbor])
-                else:
+
+                if heap.have_wrap(neighbor):
                     heap.decrease_key(neighbor, distances[neighbor])
+                    
+                else:
+                    heap.insertion(neighbor, distances[neighbor])
             
+def get_path_from_peres(source, destination, peres):
+    path = collections.deque()
+    path.append(destination.value)
+    
+    node = destination
+
+    while node != source: 
+        node = peres[node]
+
+        if node is None:
+            return []
+        
+        path.appendleft(node.value)
+    
+    return path
+
 
 
 
