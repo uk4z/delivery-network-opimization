@@ -29,7 +29,7 @@ class GraphNode:
         self.value = value
         self.neighbours = neighbours or {}
 
-    def is_connected_with_power(self, target, truck_power):
+    def is_connected_with_power(self, target, truck_power=float("inf")):
         visited = set()
         stack = [self]
 
@@ -69,45 +69,8 @@ class Graph:
         
         return output
 
-    def _get_node_by_value(self, value):
-        return self.nodes[value] 
-    
-    def get_path(self, source_value, destination_value, truck_power=float("inf")):
-        source = self._get_node_by_value(source_value)
-        destination = self._get_node_by_value(destination_value)
-
-        if not source.is_connected_with_power(destination, truck_power):
-            return None
-        
-        path, distance = self._shortest_path(source, destination, truck_power)
-
-        if distance !=  -1:
-            return path, distance 
-        
-        else:
-            path, distance = self._shortest_path(destination, source, truck_power)
-            new_path = collections.deque()
-
-            for node in path:
-                new_path.appendleft(node)
-
-            return new_path, distance
-
-    def _shortest_path(self, source, destination, truck_power): 
-        peres = {node : None for node in self.nodes.values()}
-        distances = {node : -1 for node in self.nodes.values()}
-        distances[source] = 0
-        already_processed = {node : False for node in self.nodes.values()}
-        
-        dijkstra(source, peres, distances, already_processed, truck_power)
-
-        distance = distances[destination]
-        path = get_path_from_peres(source, destination, peres)
-
-        return path, distance 
-    
     def connected_components(self, node_value):
-        node = self._get_node_by_value(node_value)
+        node = self.nodes[node_value]
 
         visited = set()
         stack = [node]
@@ -135,27 +98,115 @@ class Graph:
                 result.add(frozenset(connect))
 
         return result
-            
-            
-def dijkstra(source, peres, distances, already_processed, truck_power):
+    
+    def get_path_given_power(self, source_value, destination_value, truck_power=float("inf")):
+        source = self.nodes[source_value]
+        destination = self.nodes[destination_value]
+
+        if not source.is_connected_with_power(destination, truck_power):
+            return None
+        
+        path, distance = self._shortest_path(source, destination, truck_power)
+
+        if distance !=  -1:
+            return path, distance 
+        
+        else:
+            path, distance = self._shortest_path(destination, source, truck_power)
+            new_path = collections.deque()
+
+            for node in path:
+                new_path.appendleft(node)
+
+            return new_path, distance
+
+    def _shortest_path(self, source, destination, truck_power): 
+        peres = {node : None for node in self.nodes.values()}
+        distances = {node : -1 for node in self.nodes.values()}
+        distances[source] = 0
+        
+        dijkstra_with_distance(source, peres, distances, truck_power)
+
+        distance = distances[destination]
+        path = get_path_from_peres(source, destination, peres)
+
+        return path, distance 
+    
+    def get_min_power_path(self, source_value, destination_value):
+        source = self.nodes[source_value]
+        destination = self.nodes[destination_value]
+
+        if not source.is_connected_with_power(destination):
+            return None
+        
+        path, power = self._path_with_min_power(source, destination)
+
+        if power !=  -1:
+            return path, power 
+        
+        else:
+            path, power = self._path_with_min_power(destination, source)
+            new_path = collections.deque()
+
+            for node in path:
+                new_path.appendleft(node)
+
+            return new_path, power
+
+    def _path_with_min_power(self, source, destination): 
+        peres = {node : None for node in self.nodes.values()}
+        powers = {node : -1 for node in self.nodes.values()}
+        powers[source] = 0
+        
+        dijkstra_with_power(source, peres, powers)
+
+        power = powers[destination]
+        path = get_path_from_peres(source, destination, peres)
+
+        return path, power
+    
+def dijkstra_with_power(source, peres, powers):
     heap = FibonacciHeap()
     heap.insertion(source, 0)
 
     while heap.min_node:
         node = heap.extract_min()
-        already_processed[node] = True
 
-        visit_neighbours(node, heap, peres, distances, already_processed, truck_power)
+        update_neighbours_power(node, heap, peres, powers)
+            
+def update_neighbours_power(node, heap, peres, powers):
+        for edges in node.neighbours.values():
+            for edge in edges:
+                neighbour = edge.find_neighbour_in_edge(node)
 
-def visit_neighbours(node, heap, peres, distances, already_processed, truck_power):
+                if (powers[neighbour] == -1
+                    or max(edge.power, powers[node]) < powers[neighbour]):
+                    peres[neighbour] = node
+                    powers[neighbour] = max(edge.power, powers[node])
+
+                    if heap.have_wrap(neighbour):
+                        heap.decrease_key(neighbour, powers[neighbour])
+
+                    else: 
+                        heap.insertion(neighbour, powers[neighbour])
+                                    
+def dijkstra_with_distance(source, peres, distances, truck_power):
+    heap = FibonacciHeap()
+    heap.insertion(source, 0)
+
+    while heap.min_node:
+        node = heap.extract_min()
+
+        update_neighbours_distance(node, heap, peres, distances, truck_power)
+
+def update_neighbours_distance(node, heap, peres, distances, truck_power):
         for edges in node.neighbours.values():
             for edge in edges:
                 if truck_power >= edge.power:
                     neighbour = edge.find_neighbour_in_edge(node)
 
-                    if (not already_processed[neighbour]
-                        and (distances[neighbour] == -1 
-                            or distances[neighbour] >= distances[node] + edge.distance)):
+                    if (distances[neighbour] == -1 
+                        or distances[neighbour] >= distances[node] + edge.distance):
                         peres[neighbour] = node
                         distances[neighbour] = distances[node] + edge.distance
 
@@ -222,8 +273,8 @@ def set_edges_to_graph(graph_edges, graph):
             node1_value, node2_value, power = edge
             distance = 1
 
-        node1 = graph._get_node_by_value(node1_value)
-        node2 = graph._get_node_by_value(node2_value)
+        node1 = graph.nodes[node1_value]
+        node2 = graph.nodes[node2_value]
         
         new_edge = GraphEdge(node1, node2, power, distance)
         add_edge_to_Graph(graph, new_edge)
@@ -234,13 +285,15 @@ def add_edge_to_Graph(graph, edge):
     set_edge_to_nodes(edge)
 
 def set_edge_to_nodes(edge):
-    node1 = edge.node1
-    node2 = edge.node2
+            node1 = edge.node1
+            node2 = edge.node2
 
-    if node1 not in node2.neighbours:
-        node2.neighbours[node1] = [edge]
-        node1.neighbours[node2] = [edge]
+            if node1 not in node2.neighbours:
+                node2.neighbours[node1] = [edge]
+                node1.neighbours[node2] = [edge]
 
-    else:
-        node2.neighbours[node1].append(edge)
-        node1.neighbours[node2].append(edge)
+            else:
+                node2.neighbours[node1].append(edge)
+                node1.neighbours[node2].append(edge)
+                
+            
