@@ -29,7 +29,7 @@ class GraphNode:
         self.value = value
         self.neighbours = neighbours or {}
 
-    def is_connected(self, target):
+    def is_connected_with_power(self, target, truck_power):
         visited = set()
         stack = [self]
 
@@ -41,13 +41,16 @@ class GraphNode:
             
             visited.add(node)
                 
-            for neighbour in node.neighbours.keys():
+            for neighbour, edges in node.neighbours.items():
                 if neighbour not in visited:
-                    stack.append(neighbour)
+                    for edge in edges:
+                        if truck_power >= edge.power:
+                            stack.append(neighbour)
+                            break
 
         return False
 
-           
+        
 class Graph:
     def __init__(self):
         self.nodes = {}
@@ -69,20 +72,20 @@ class Graph:
     def _get_node_by_value(self, value):
         return self.nodes[value] 
     
-    def get_path(self, source_value, destination_value):
+    def get_path(self, source_value, destination_value, truck_power=float("inf")):
         source = self._get_node_by_value(source_value)
         destination = self._get_node_by_value(destination_value)
 
-        if not source.is_connected(destination):
+        if not source.is_connected_with_power(destination, truck_power):
             return None
         
-        path, distance = self._shortest_path(source, destination)
+        path, distance = self._shortest_path(source, destination, truck_power)
 
         if distance !=  -1:
             return path, distance 
         
         else:
-            path, distance = self._shortest_path(destination, source)
+            path, distance = self._shortest_path(destination, source, truck_power)
             new_path = collections.deque()
 
             for node in path:
@@ -90,13 +93,13 @@ class Graph:
 
             return new_path, distance
 
-    def _shortest_path(self, source, destination): 
+    def _shortest_path(self, source, destination, truck_power): 
         peres = {node : None for node in self.nodes.values()}
         distances = {node : -1 for node in self.nodes.values()}
         distances[source] = 0
         already_processed = {node : False for node in self.nodes.values()}
         
-        dijkstra(source, peres, distances, already_processed)
+        dijkstra(source, peres, distances, already_processed, truck_power)
 
         distance = distances[destination]
         path = get_path_from_peres(source, destination, peres)
@@ -132,9 +135,9 @@ class Graph:
                 result.add(frozenset(connect))
 
         return result
-             
-             
-def dijkstra(source, peres, distances, already_processed):
+            
+            
+def dijkstra(source, peres, distances, already_processed, truck_power):
     heap = FibonacciHeap()
     heap.insertion(source, 0)
 
@@ -142,24 +145,25 @@ def dijkstra(source, peres, distances, already_processed):
         node = heap.extract_min()
         already_processed[node] = True
 
-        visit_neighbours(node, heap, peres, distances, already_processed)
+        visit_neighbours(node, heap, peres, distances, already_processed, truck_power)
 
-def visit_neighbours(node, heap, peres, distances, already_processed):
+def visit_neighbours(node, heap, peres, distances, already_processed, truck_power):
         for edges in node.neighbours.values():
             for edge in edges:
-                neighbour = edge.find_neighbour_in_edge(node)
+                if truck_power >= edge.power:
+                    neighbour = edge.find_neighbour_in_edge(node)
 
-                if (not already_processed[neighbour]
-                    and (distances[neighbour] == -1 
-                        or distances[neighbour] >= distances[node] + edge.distance)):
-                    peres[neighbour] = node
-                    distances[neighbour] = distances[node] + edge.distance
+                    if (not already_processed[neighbour]
+                        and (distances[neighbour] == -1 
+                            or distances[neighbour] >= distances[node] + edge.distance)):
+                        peres[neighbour] = node
+                        distances[neighbour] = distances[node] + edge.distance
 
-                    if heap.have_wrap(neighbour):
-                        heap.decrease_key(neighbour, distances[neighbour])
-                        
-                    else:
-                        heap.insertion(neighbour, distances[neighbour])
+                        if heap.have_wrap(neighbour):
+                            heap.decrease_key(neighbour, distances[neighbour])
+                            
+                        else:
+                            heap.insertion(neighbour, distances[neighbour])
             
 def get_path_from_peres(source, destination, peres):
     path = collections.deque()
@@ -230,15 +234,13 @@ def add_edge_to_Graph(graph, edge):
     set_edge_to_nodes(edge)
 
 def set_edge_to_nodes(edge):
-        node1 = edge.node1
-        node2 = edge.node2
+    node1 = edge.node1
+    node2 = edge.node2
 
-        if node1 not in node2.neighbours:
-            node2.neighbours[node1] = [edge]
-            node1.neighbours[node2] = [edge]
+    if node1 not in node2.neighbours:
+        node2.neighbours[node1] = [edge]
+        node1.neighbours[node2] = [edge]
 
-        else:
-            node2.neighbours[node1].append(edge)
-            node1.neighbours[node2].append(edge)
-
-
+    else:
+        node2.neighbours[node1].append(edge)
+        node1.neighbours[node2].append(edge)
