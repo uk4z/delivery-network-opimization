@@ -2,6 +2,7 @@ import sys
 sys.path.append("D:\Coding files\Delivery network\Fibonacci Heap")
 from fibonacci_heap import FibonacciHeap
 import collections
+import time
 
 class GraphEdge:
     def __init__(self, node1=None, node2=None, power=0, distance=1):
@@ -165,6 +166,50 @@ class Graph:
 
         return path, power
     
+    def get_min_power_path_using_kruskal(self, source_value, destination_value):
+        tree = kruskal(self)
+
+        source = tree.nodes[source_value]
+        destination = tree.nodes[destination_value]
+
+        if not source.is_connected_with_power(destination):
+            return None 
+        
+        visited = set()
+        stack = [source]
+        parent = {}
+
+        while stack:
+            node = stack.pop()
+
+            if node == destination:
+                break
+            
+            visited.add(node)
+                
+            for neighbour, edges in node.neighbours.items():
+                if neighbour not in visited:
+                    parent[neighbour] = [node, edges[0]]
+                    stack.append(neighbour)
+        
+        path = collections.deque()
+        path.append(destination.value)
+        
+        node = destination
+        min_power = 0
+
+        while node != source: 
+            node, edge = parent[node]
+            min_power = max(min_power, edge.power)
+
+            if node is None:
+                return []
+            
+            path.appendleft(node.value)
+        
+        return path, min_power
+    
+    
 def dijkstra_with_power(source, peres, powers):
     heap = FibonacciHeap()
     heap.insertion(source, 0)
@@ -232,6 +277,59 @@ def get_path_from_peres(source, destination, peres):
     
     return path
 
+
+def kruskal(graph):
+    result, parent, rank = initialize_kruskal(graph)
+    sorted_edges = sorted(graph.edges, key=lambda edge: edge.power)
+
+    for edge in sorted_edges:
+        new_edge = GraphEdge(result.nodes[edge.node1.value], result.nodes[edge.node2.value], edge.power, edge.distance)
+        node1 = find(parent, result.nodes[edge.node1.value])
+        node2 = find(parent, result.nodes[edge.node2.value])
+
+        if node1 != node2:
+            add_edge_to_Graph(result, new_edge)
+            union(parent, rank, node1, node2)
+
+        
+        if len(result.edges) == len(graph.nodes) - 1 :
+            break
+
+    return result
+
+def initialize_kruskal(graph):
+    result = Graph()
+    parent = {}
+    rank = {}
+
+    for node in graph.nodes.values():
+        new_node = GraphNode(node.value)
+        result.nodes[new_node.value] = new_node
+        parent[new_node] = new_node
+        rank[new_node] = 0
+    
+    return result, parent, rank
+
+def find(parent, node):
+    if parent[node] != node:
+        parent[node] = find(parent, parent[node])
+
+    return parent[node]
+    
+def union(parent, rank, node1, node2):
+
+    if rank[node1] < rank[node2]:
+        parent[node1] = node2
+
+    elif rank[node1] > rank[node2]:
+        parent[node2] = node1
+
+    else:
+        parent[node2] = node1
+        rank[node1] += 1
+
+        
+        
 def graph_from_file(filename):
     nb_nodes, edges_of_graph = open_network_file(filename)
     graph = Graph()
@@ -295,5 +393,40 @@ def set_edge_to_nodes(edge):
             else:
                 node2.neighbours[node1].append(edge)
                 node1.neighbours[node2].append(edge)
+
                 
-            
+                
+                
+def estimated_time_processing_using_dijkstra(graph):
+    start = time.perf_counter()
+    count = 0
+
+    for route in graph.routes:
+        graph.get_min_power_path_using_dijkstra(route.source.value, route.destination.value) 
+        count += 1
+
+        if count > 10:
+            break 
+
+    end = time.perf_counter()
+    mean = (end-start)/10
+    estimated_time = (mean * len(graph.routes))/3600
+    
+    return f"It will take around {estimated_time} hours processing."
+
+def estimated_time_processing_using_kruskal(graph):
+    start = time.perf_counter()
+    count = 0
+
+    for route in graph.routes:
+        graph.get_min_power_path_using_kruskal(route.source.value, route.destination.value) 
+        count += 1
+
+        if count > 10:
+            break 
+
+    end = time.perf_counter()
+    mean = (end-start)/10
+    estimated_time = (mean * len(graph.routes))/3600
+    
+    return f"It will take around {estimated_time} hours processing."
