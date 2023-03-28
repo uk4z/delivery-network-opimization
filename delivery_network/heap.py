@@ -1,10 +1,8 @@
 import math
 
-# Creating a class to represent a node in the heap
-
 class FibonacciHeapNode:
     def __init__(self, wrap, key):
-        self.wrap = wrap
+        self.wrap = wrap    
         self.key = key
         self.parent = None
         self.child = None 
@@ -38,58 +36,102 @@ class FibonacciHeapNode:
 
             self.parent = parent
             parent.degree += 1
- 
+    
+    def remove_from_child_list(self, node):
+        if node.parent != self:
+            return
+        
+        if self.child == self.child.right:
+            self.child = None
+
+        elif self.child == node:
+            self.child = node.right
+            node.right.self = self
+
+        node.left.right = node.right
+        node.right.left = node.left
+
+    def merge_with_child_list(self, node):
+        if self.child is None:
+            self.child = node
+
+        else:
+            node.right = self.child.right
+            node.left = self.child
+            self.child.right.left = node
+            self.child.right = node
 
 class FibonacciHeap:
     def __init__(self):
         self.min_node = None
+        self.root_list = None
         self.nb_nodes = 0
     
+    def insertion(self, wrap, key):
+        new_node = FibonacciHeapNode(wrap, key)
+        self.merge_with_root_list(new_node)
+
+        if self.min_node is None or new_node.key < self.min_node.key:
+            self.min_node = new_node
+
+        self.nb_nodes += 1
+    
+    def merge_with_root_list(self, node):
+        if self.root_list is None:
+            self.root_list = node
+
+        else:
+            node.right = self.root_list.right
+            node.left = self.root_list
+            self.root_list.right.left = node
+            self.root_list.right = node
+
     def update_min_node(self, node):
         if node.key < self.min_node.key:
             self.min_node = node
 
-    def insertion(self, wrap, key):
-        new_node = FibonacciHeapNode(wrap, key)
-
-        if self.min_node is not None:
-            new_node.link_to_the_left(self.min_node)
-            self.update_min_node(new_node)
-
-        else:
-            self.min_node = new_node
-            
-        self.nb_nodes += 1
-    
     def have_wrap(self, wrap):
         if self.min_node is None:
             return False
         
         return dfs_node(self.min_node, wrap) is not None
-    
-    def _get_node_by_wrap(self, wrap):
-        if self.min_node is None:
-            return None 
-        
-        return dfs_node(self.min_node, wrap)
 
-    def _add_child_to_root_list(self):
-        if self.min_node.child is not None:
-                child = self.min_node.child
+    def extract_min(self):
+        extract_node = self.min_node
+
+        if extract_node is not None:
+            if extract_node.child is not None:
+                child = extract_node.child
 
                 while True:
-                    neighbor = child.right
-
-                    child.suppress_neighbors()
-                    child.link_to_the_left(self.min_node)
+                    other_child = child.right
+                    self.merge_with_root_list(child)
                     child.parent = None
 
-                    child = neighbor
-
-                    if neighbor == self.min_node.child:
+                    if other_child == extract_node.child:
                         break
 
-                self.min_node.child = None
+                    child = other_child
+
+            self.remove_from_root_list(extract_node)
+
+            if extract_node == extract_node.right:
+                self.min_node = self.root_list = None
+
+            else:
+                self.min_node = extract_node.right
+                self.consolidate()
+
+            self.nb_nodes -= 1
+            
+            return extract_node.wrap
+    
+    def remove_from_root_list(self, node):
+        if node == self.root_list:
+            self.root_list = node.right
+
+        node.left.right = node.right
+        node.right.left = node.left
 
     def _extract_only_node(self):
         extracted_node = self.min_node
@@ -97,82 +139,65 @@ class FibonacciHeap:
         self.nb_nodes = 0  
 
         return extracted_node.wrap
-
-    def extract_min(self):
-        if self.min_node is not None:
-            self._add_child_to_root_list()
-
-            if self.min_node == self.min_node.right:
-                return self._extract_only_node()
-            
-            extracted_node = self.min_node
-            self.min_node = self.min_node.right
-            extracted_node.suppress_neighbors()
-
-            self.nb_nodes -= 1
-            self.consolidate()
-            
-            return extracted_node.wrap
     
-    def _link_same_degree_nodes(self, root_list):
-        node = self.min_node
-        while True:
-            degree = node.degree
-
-            while root_list[degree]:
-                neighbour = root_list[degree]
-
-                if neighbour.key < node.key:
-                    neighbour, node = node, neighbour
-
-                if neighbour == self.min_node:
-                    self.min_node = node
-
-                neighbour.link_as_child(node)
-
-                if node.right == node:
-                    self.min_node = node
-
-                root_list[degree] = None
-                degree += 1
-
-            root_list[degree] = node
-            node = node.right
-
-            if node == self.min_node:
-                break
-
-    def _set_min_node_from_root_list(self, root_list):
-        self.min_node = None
-        for node in root_list:
-            if node:
-                if self.min_node is None:
-                    self.min_node = node
-                else:
-                    node.suppress_neighbors()
-                    node.link_to_the_left(self.min_node)
-                    
-                    self.update_min_node(node)
-
     def consolidate(self):
         MAX_DEGREE = 2 * int(math.log2(self.nb_nodes)) + 1
         root_list = [None] * (MAX_DEGREE + 1)
 
-        self._link_same_degree_nodes(root_list)
-        self._set_min_node_from_root_list(root_list)
+        node = self.min_node
+        while True:
+            degree = node.degree
 
+            while root_list[degree] is not None:
+                neighbour = root_list[degree]
+
+                if neighbour.key < node.key:
+                    neighbour, node = node, neighbour
+                
+                self.heap_link(node, neighbour)
+                root_list[degree] = None
+                degree += 1
+
+            root_list[degree] = node
+
+            if node == self.min_node:
+                break
+
+            node = node.right
+
+        for node in root_list:
+            if node is not None:
+                if node.key < self.min_node.key:
+                    self.min_node = node
+
+    def decrease_key(self, wrap, new_key):
+        node = self._get_node_by_wrap(wrap)
+
+        if new_key >= node.key:
+            return 
         
+        node.key = new_key
+        parent = node.parent
+        
+        if (parent is not None) and node.key < parent.key:
+            self._cut(node, parent)
+            self._cascade_cut(parent)
 
+        if node.key < self.min_node.key:
+            self.min_node = node
+
+    def _get_node_by_wrap(self, wrap):
+        if self.min_node is None:
+            return None 
+        
+        return dfs_node(self.min_node, wrap)
+    
     def _cut(self, node, parent):
-        if node == parent.child:
-            parent.child = node.right if (node.right != node) else None
-
-        node.mark = False 
-        node.parent = None
-        node.suppress_neighbors()
-        node.link_to_the_left(self.min_node)
-        
+        parent.remove_from_child_list(node)
         parent.degree -= 1
+        self.merge_with_root_list(node)
+        node.mark = False 
+        node.parent = None  
 
     def _cascade_cut(self, node):
         parent = node.parent
@@ -185,18 +210,14 @@ class FibonacciHeap:
                 self._cut(node, parent)
                 self._cascade_cut(parent)
 
-    def decrease_key(self, node_wrap, new_key):
-        node = self._get_node_by_wrap(node_wrap)
-        node.key = new_key
-
-        parent = node.parent
-        
-        if (parent is not None) and node.key < parent.key:
-            self._cut(node, parent)
-            self._cascade_cut(parent)
-
-        self.update_min_node(node)
-
+    def heap_link(self, parent, child):
+        self.remove_from_root_list(child)
+        child.left = child.right = child
+        parent.merge_with_child_list(child)
+        parent.degree += 1
+        child.parent = parent
+        child.mark = False
+    
 def dfs_node(node, wrap):
     stack = [node]
     visited = set()
