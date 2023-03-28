@@ -1,5 +1,3 @@
-import sys 
-sys.path.append("D:\Coding files\Delivery network\Fibonacci Heap")
 from fibonacci_heap import FibonacciHeap
 import collections
 import time
@@ -51,11 +49,19 @@ class GraphNode:
 
         return False
 
-        
+
+class GraphRoute:
+    def __init__(self, source, destination, utility):
+        self.source = source
+        self.destination = destination
+        self.utility = utility 
+
+
 class Graph:
     def __init__(self):
         self.nodes = {}
         self.edges = []
+        self.routes = set()
 
     def __str__(self):
         if not self.nodes.keys():
@@ -133,7 +139,7 @@ class Graph:
 
         return path, distance 
     
-    def get_min_power_path(self, source_value, destination_value):
+    def get_min_power_path_using_dijkstra(self, source_value, destination_value):
         source = self.nodes[source_value]
         destination = self.nodes[destination_value]
 
@@ -235,6 +241,7 @@ def update_neighbours_power(node, heap, peres, powers):
                     else: 
                         heap.insertion(neighbour, powers[neighbour])
                                     
+
 def dijkstra_with_distance(source, peres, distances, truck_power):
     heap = FibonacciHeap()
     heap.insertion(source, 0)
@@ -394,7 +401,27 @@ def set_edge_to_nodes(edge):
                 node2.neighbours[node1].append(edge)
                 node1.neighbours[node2].append(edge)
 
-                
+def open_route_file(network):
+    with open(network, 'r') as file:
+        input = file.read()
+        lines = input.split("\n")
+
+        routes_of_graph = lines[1:]
+
+        return routes_of_graph
+
+def set_routes_to_graph(route_file, graph):
+    graph_routes = open_route_file(route_file)
+
+    for line in graph_routes:
+        route = get_data_from_line(line)
+        node1_value, node2_value, utility = route
+
+        node1 = graph.nodes[node1_value]
+        node2 = graph.nodes[node2_value]
+        
+        new_route = GraphRoute(node1, node2, utility)
+        graph.routes.add(new_route)
                 
                 
 def estimated_time_processing_using_dijkstra(graph):
@@ -405,7 +432,7 @@ def estimated_time_processing_using_dijkstra(graph):
         graph.get_min_power_path_using_dijkstra(route.source.value, route.destination.value) 
         count += 1
 
-        if count > 10:
+        if count > 5:
             break 
 
     end = time.perf_counter()
@@ -422,11 +449,12 @@ def estimated_time_processing_using_kruskal(graph):
         graph.get_min_power_path_using_kruskal(route.source.value, route.destination.value) 
         count += 1
 
-        if count > 10:
+        if count > 5:
             break 
 
     end = time.perf_counter()
     mean = (end-start)/10
     estimated_time = (mean * len(graph.routes))/3600
     
-    return f"It will take around {estimated_time} hours processing."
+    return f"It will take around {estimated_time} hours processing."             
+                
