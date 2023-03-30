@@ -2,6 +2,56 @@ from fibonacci_heap import FibonacciHeap
 import collections
 import time
 
+class TreeNode:
+    def __init__(self, value, power, parent=None):
+        self.parent = parent
+        self.children = []
+        self.value = value
+        self.power = power
+
+
+class Tree:
+    def __init__(self, root):
+        self.root = root
+        self.nodes = {}
+
+    def find_min_power(self, value1, value2):
+        if value1 == value2:
+            return -1
+        
+        node1 = self.nodes[value1]
+        node2 = self.nodes[value2]
+        lca = lowest_common_ancestor(node1, node2)
+        min_power = 0
+
+        node = node1
+        while node != lca:
+            min_power = max(min_power, node.power)
+            node = node.parent 
+        
+        node = node2
+        while node != lca:
+            min_power = max(min_power, node.power)
+            node = node.parent
+    
+        return  min_power
+
+
+def lowest_common_ancestor(node1, node2):
+    ancestors = set()
+
+    while node1:
+        ancestors.add(node1)
+        node1 = node1.parent
+
+    while node2:
+        if node2 in ancestors:
+            return node2
+        node2 = node2.parent
+
+    return None
+
+
 
 class GraphEdge:
     def __init__(self, node1=None, node2=None, power=0, distance=1):
@@ -78,7 +128,7 @@ class Graph:
             for edge in self.edges:
                 source = edge.node1.value
                 destination = edge.node2.value
-                output += f"{source} --- {destination}\n"
+                output += f"{source} --- {destination} with power {edge.power}\n"
         
         return output
 
@@ -177,6 +227,7 @@ class Graph:
 
         return powers
     
+
 def dfs(visited, node, destination, min_power):
     if node == destination:
         return min_power
@@ -266,33 +317,36 @@ def get_path_from_peres(source, destination, peres):
 
 
 def kruskal(graph):
-    spanning_tree = []
+    new_graph = Graph()
     parent = {}
     rank = {}
 
     for edge in graph.edges:
-        source = edge.node1.value
-        destination = edge.node2.value 
-        power = edge.power
+        first_value = edge.node1.value
+        if first_value not in new_graph.nodes:
+            node = GraphNode(first_value)
+            new_graph.nodes[first_value] = node 
+            rank[node] = 0 
+            parent[node] = node
 
-        if source not in spanning_tree:
-            rank[source] = 0 
-            parent[source] = source
-  
-        if destination not in spanning_tree:
-            rank[destination] = 0
-            parent[destination] = destination
+        second_value = edge.node2.value
+        if second_value not in new_graph.nodes:
+            node = GraphNode(second_value)
+            new_graph.nodes[second_value] = node
+            rank[node] = 0
+            parent[node] = node
 
-        spanning_tree.append([source, destination, power])
-        node1 = find(parent, source)
-        node2 = find(parent, destination)
+        new_edge = GraphEdge(new_graph.nodes[edge.node1.value], new_graph.nodes[edge.node2.value], edge.power, edge.distance)
+        node1 = find(parent, new_graph.nodes[edge.node1.value])
+        node2 = find(parent, new_graph.nodes[edge.node2.value])
 
         if node1 != node2:
+            add_edge_to_Graph(new_graph, new_edge)
             union(parent, rank, node1, node2)
 
-        
-        if len(spanning_tree) == len(graph.nodes) - 1 :
-            return spanning_tree
+        if len(new_graph.edges) == len(graph.nodes) - 1 :
+            new_graph.sort_edges()
+            return new_graph
     
 def find(parent, node):
     if parent[node] != node:
@@ -312,7 +366,32 @@ def union(parent, rank, node1, node2):
         parent[node2] = node1
         rank[node1] += 1
 
-        
+
+def graph_to_tree(graph):
+    starting_node = graph.edges[0].node1
+    root = TreeNode(starting_node.value, 0)
+    spanning_tree = Tree(root)
+    spanning_tree.nodes[root.value] = root
+    stack = [(starting_node, root)]
+    visited = set([starting_node])
+
+    while stack:
+        node, tree_node = stack.pop()
+        for neighbour in node.neighbours.keys():
+            if neighbour not in visited:
+                edge = node.neighbours[neighbour][0]
+                child = TreeNode(neighbour.value, edge.power, tree_node)
+                spanning_tree.nodes[neighbour.value] = child
+                tree_node.children.append(child)
+                stack.append((neighbour, child))
+                visited.add(neighbour)
+
+    return spanning_tree
+
+
+
+
+
 def graph_from_file(filename):
     nb_nodes, edges_of_graph = open_network_file(filename)
     graph = Graph()
@@ -437,41 +516,40 @@ def estimated_time_processing_using_kruskal(graph):
 
 def estimated_time_processing_from_MST(graph):
     start = time.perf_counter()
-    count_source = 0
-    count_line = 0 
-    previous_source = None
+    spanning_graph = kruskal(graph)
+    tree = graph_to_tree(spanning_graph)
+    end = time.perf_counter()
+
+    time_optimizing_graph = (end-start)
+
+    start = time.perf_counter()
+    count = 0
 
     for route in graph.routes:
-        source = route.source
+        tree.find_min_power(route.source.value, route.destination.value)
+        count += 1
 
-        if previous_source is None or source != previous_source:
-            graph.get_min_powers_from_source(source)
-            previous_source = route.source
-            count_source += 1
-
-        count_line += 1
-        if count_source > 5:
+        if count > 5:
             break 
 
     end = time.perf_counter()
-    duration_process = end-start
-    estimated_time = ((duration_process/count_line)*len(graph.routes))/3600
+    mean = (end-start)/5
+    estimated_time = ((mean * len(graph.routes))+ time_optimizing_graph) 
     
-    return f"It will take around {estimated_time} hours processing."             
+    return f"It will take around {estimated_time} seconds processing."             
                     
 
 def write_min_power_in_output_file(filename, graph):
+    spanning_graph = kruskal(graph)
+    tree = graph_to_tree(spanning_graph)
+
     with open(filename, "w") as file:
-        previous_source = None
         for route in graph.routes:
             source = route.source
             destination = route.destination
 
-            if previous_source is None or source != previous_source:
-                min_powers = graph.get_min_powers_from_source(source)
-                previous_source = route.source
+            power = tree.find_min_power(source.value, destination.value)
 
-            power = min_powers[destination]
             line = f"{source.value} {destination.value} {power}\n"
             file.write(line)
             
