@@ -52,7 +52,6 @@ def lowest_common_ancestor(node1, node2):
     return None
 
 
-
 class GraphEdge:
     def __init__(self, node1=None, node2=None, power=0, distance=1):
         self.node1 = node1
@@ -389,9 +388,6 @@ def graph_to_tree(graph):
     return spanning_tree
 
 
-
-
-
 def graph_from_file(filename):
     nb_nodes, edges_of_graph = open_network_file(filename)
     graph = Graph()
@@ -536,10 +532,11 @@ def estimated_time_processing_from_MST(graph):
     mean = (end-start)/5
     estimated_time = ((mean * len(graph.routes))+ time_optimizing_graph) 
     
-    return f"It will take around {estimated_time} seconds processing."             
+    return f"It will take around {int(estimated_time)} seconds processing."             
                     
 
 def write_min_power_in_output_file(filename, graph):
+    print(estimated_time_processing_from_MST(graph))
     spanning_graph = kruskal(graph)
     tree = graph_to_tree(spanning_graph)
 
