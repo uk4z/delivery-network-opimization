@@ -1,6 +1,80 @@
+import sys 
+sys.path.append("D:\Coding files\Delivery network\Fibonacci Heap")
 from fibonacci_heap import FibonacciHeap
 import collections
 import time
+
+
+class DeliveryNetwork:
+    def __init__(self, graph):
+        self.graph = graph
+        self.trucks = {}
+        self.not_available_routes = set()
+
+    def add_truck(self, truck):
+        cost = truck.cost 
+
+        if cost in self.trucks:
+            self.trucks[cost].append(truck)
+            self.trucks[cost].sort(key=lambda truck: truck.truck_power, reverse=True)
+        
+        else: 
+            self.trucks[cost] = [truck]
+
+    def set_profit_to_truck(self, truck):
+        truck_power = truck.truck_power
+        
+        while truck_power >= 0:
+            if truck_power in self.graph.powerRoutes:
+                for route in self.graph.powerRoutes[truck_power]:
+                    if route not in self.not_available_routes:
+                        truck.profit = route.utility
+                        self.not_available_routes.add(route)
+                        return 
+            truck_power -= 1
+
+    def to_buy_with_budget(self, budget):
+        already_computed_solutions = {}
+        truck_costs = list(self.trucks.keys())
+        truck_profits = []
+        nb_trucks = len(self.trucks)
+
+        for trucks in self.trucks.values():
+            for truck in trucks:
+                truck_profits.append(truck.profit)
+
+        "Starting to get the highest profit..."
+
+        knapsack(already_computed_solutions, budget, truck_costs, truck_profits, nb_trucks)
+    
+        return already_computed_solutions[nb_trucks]
+
+
+def knapsack(already_computed_solutions, budget, truck_costs, truck_profits, nb_trucks):
+    if nb_trucks == 0 or budget == 0:
+        return 0
+
+    if truck_costs[nb_trucks - 1] > budget:
+        return knapsack(already_computed_solutions, budget, truck_costs, truck_profits, nb_trucks - 1)
+
+    if nb_trucks in already_computed_solutions:
+        return already_computed_solutions[nb_trucks]
+
+    value_picked = truck_profits[nb_trucks - 1] + knapsack(already_computed_solutions, budget-truck_costs[nb_trucks - 1], truck_costs, truck_profits, nb_trucks - 1)
+    value_notpicked = knapsack(already_computed_solutions, budget, truck_costs, truck_profits, nb_trucks - 1)
+    value_max = max(value_picked, value_notpicked)
+
+    already_computed_solutions[nb_trucks] = value_max
+
+    return value_max
+
+
+class Truck:
+    def __init__(self, cost, truck_power):
+        self.cost = cost 
+        self.truck_power = truck_power
+        self.profit = 0 
+
 
 class TreeNode:
     def __init__(self, value, power, parent=None):
@@ -116,6 +190,8 @@ class Graph:
     def __init__(self):
         self.nodes = {}
         self.edges = []
+        self.powerRoutes = {}
+        self.minimum_spanning_tree = None
         self.routes = []
 
     def __str__(self):
@@ -130,6 +206,10 @@ class Graph:
                 output += f"{source} --- {destination} with power {edge.power}\n"
         
         return output
+
+    def add_minimum_spanning_tree(self):
+        minimum_graph = kruskal(self)
+        self.minimum_spanning_tree = graph_to_tree(minimum_graph)
 
     def connected_components(self, node_value):
         node = self.nodes[node_value]
@@ -165,6 +245,17 @@ class Graph:
         self.edges.sort(key=lambda edge: edge.power)
         for node in self.nodes.values():
             node.sort_edges_in_neighbours()
+
+    def associate_power_with_route(self, route):
+        source = route.source.value
+        destination = route.destination.value
+        power = self.minimum_spanning_tree.find_min_power(source, destination)
+
+        if power not in self.powerRoutes.keys():
+            self.powerRoutes[power] = [route]
+
+        else: 
+            self.powerRoutes[power].append(route)
 
     def get_path_given_power(self, source_value, destination_value, truck_power=float("inf")):
         source = self.nodes[source_value]
@@ -226,6 +317,7 @@ class Graph:
 
         return powers
     
+
 
 def dfs(visited, node, destination, min_power):
     if node == destination:
@@ -388,14 +480,26 @@ def graph_to_tree(graph):
     return spanning_tree
 
 
-def graph_from_file(filename):
-    nb_nodes, edges_of_graph = open_network_file(filename)
+def deliveryNetwork_from_file(network_filename, route_filename, truck_filename):
+    graph = graph_from_file(network_filename, route_filename)
+    delivery_network = DeliveryNetwork(graph)
+
+    set_truck_to_delivery_network(truck_filename, delivery_network)
+    return delivery_network
+
+def graph_from_file(network_filename, route_filename):
+    print("The graph is being created...")
+    nb_nodes, edges_of_graph = open_network_file(network_filename)
     graph = Graph()
 
     set_nodes_to_graph(nb_nodes, graph)
     set_edges_to_graph(edges_of_graph, graph)
     graph.sort_edges()
 
+    graph.add_minimum_spanning_tree()
+    set_routes_to_graph(route_filename, graph)
+    graph.routes.sort(key=lambda route: route.utility, reverse=True)
+    print("The graph has been created.")
     return graph
 
 def open_network_file(network):
@@ -453,15 +557,6 @@ def set_edge_to_nodes(edge):
                 node2.neighbours[node1].append(edge)
                 node1.neighbours[node2].append(edge)
 
-def open_route_file(network):
-    with open(network, 'r') as file:
-        input = file.read()
-        lines = input.split("\n")
-
-        routes_of_graph = lines[1:]
-
-        return routes_of_graph
-
 def set_routes_to_graph(route_file, graph):
     graph_routes = open_route_file(route_file)
 
@@ -474,8 +569,39 @@ def set_routes_to_graph(route_file, graph):
         
         new_route = GraphRoute(node1, node2, utility)
         graph.routes.append(new_route)
-    graph.routes.sort(key=lambda route: route.source.value)
-                
+        graph.associate_power_with_route(new_route)
+
+def open_route_file(filename):
+    with open(filename, 'r') as file:
+        input = file.read()
+        lines = input.split("\n")
+
+        routes_of_graph = lines[1:]
+
+        return routes_of_graph
+
+
+def set_truck_to_delivery_network(truck_file, delivery_network):
+    trucks_info = open_truck_file(truck_file)
+
+    for line in trucks_info:
+        truck = get_data_from_line(line)
+        truck_power, cost = truck
+        
+        new_truck = Truck(truck_power, cost)
+        delivery_network.add_truck(new_truck)
+        delivery_network.set_profit_to_truck(new_truck)
+
+def open_truck_file(filename):
+    with open(filename, 'r') as file:
+        input = file.read()
+        lines = input.split("\n")
+
+        trucks_info = lines[1:]
+
+        return trucks_info
+
+
 def estimated_time_processing_using_dijkstra(graph):
     start = time.perf_counter()
     count = 0
@@ -512,17 +638,10 @@ def estimated_time_processing_using_kruskal(graph):
 
 def estimated_time_processing_from_MST(graph):
     start = time.perf_counter()
-    spanning_graph = kruskal(graph)
-    tree = graph_to_tree(spanning_graph)
-    end = time.perf_counter()
-
-    time_optimizing_graph = (end-start)
-
-    start = time.perf_counter()
     count = 0
 
     for route in graph.routes:
-        tree.find_min_power(route.source.value, route.destination.value)
+        graph.minimum_spanning_tree.find_min_power(route.source.value, route.destination.value)
         count += 1
 
         if count > 5:
@@ -530,7 +649,7 @@ def estimated_time_processing_from_MST(graph):
 
     end = time.perf_counter()
     mean = (end-start)/5
-    estimated_time = ((mean * len(graph.routes))+ time_optimizing_graph) 
+    estimated_time = mean * len(graph.routes) 
     
     return f"It will take around {int(estimated_time)} seconds processing."             
                     
@@ -549,6 +668,7 @@ def write_min_power_in_output_file(filename, graph):
 
             line = f"{source.value} {destination.value} {power}\n"
             file.write(line)
+
             
 
 
