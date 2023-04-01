@@ -1,280 +1,532 @@
-class Graph:
-    def __init__(self, nodes=[]):
-        """
-        Initializes a graph with an optional list of nodes.
-        Parameters:
-        -----------
-        nodes: list, optional
-            A list of nodes to initialize the graph with. Default is empty.
-        """
-        self.nodes = nodes
-        self.graph = dict([(n, []) for n in nodes])
-        self.nb_nodes = len(nodes)
-        self.nb_edges = 0
+import sys 
+sys.path.append("D:\Coding files\Delivery network\Fibonacci Heap")
+from fibonacci_heap import FibonacciHeap
+from tree import *
+
+import collections
+
+import time
+
+import networkx as nx
+import matplotlib.pyplot as plt
+
+
+class GraphEdge:
+    def __init__(self, node1=None, node2=None, power=0, distance=1):
+        self.node1 = node1
+        self.node2 = node2
+        self.power = power
+        self.distance = distance
     
     def __str__(self):
-        """Prints the graph as a list of neighbors for each 
-        node (one per line)"""
-        if not self.graph:
-            output = "The graph is empty"            
-        else:
-            output = f"The graph has {self.nb_nodes} nodes \
-            and {self.nb_edges} edges.\n"
-            for source, destination in self.graph.items():
-                output += f"{source}-->{destination}\n"
-        return output
+        source = self.node1.value
+        destination = self.node2.value
+
+        return f"{source} --- {destination}"
     
-    def add_edge(self, node1, node2, power_min, dist=1):
-        """
-        Adds an edge to the graph. Graphs are not oriented, 
-        hence an edge is added to the adjacency list of both end nodes. 
-
-        Parameters: 
-        -----------
-        node1: NodeType
-            First end (node) of the edge
-        node2: NodeType
-            Second end (node) of the edge
-        power_min: numeric (int or float)
-            Minimum power on this edge
-        dist: numeric (int or float), optional
-            Distance between node1 and node2 on the edge. Default is 1.
-        """
-        # Adds new nodes in the list
-        if node1 not in self.nodes:
-            self.nodes.append(node1)
-            self.nb_nodes += 1
-        if node2 not in self.nodes: 
-            self.nodes.append(node2)
-            self.nb_nodes += 1
-        # Adds edge to the graph
-        self.graph[node1] = self.graph.get(node1, []) +\
-            [[node2, power_min, dist]]
-        self.graph[node2] = self.graph.get(node2, []) +\
-            [[node1, power_min, dist]]
-        # An edge has been created
-        self.nb_edges += 1
-
-    def get_path_with_power(self, src, dest, power):
-        """
-        The algorithm goes through every nodes and for each node, 
-        it browses every edges thus the complexity is in O(V.E) 
-        where V and E represent respectively the number of nodes and edges.
-        Only takes road with the minimal distance 
-
-        Args:
-            src (int): the source of the road
-            dest (int): the destination of the road
-            power (int): the power of the truck
-
-        Returns:
-            list: Contains the different nodes which compose the road 
-        """
-        res = [[]]
-        visit = []
-        self.minimal_length = float('inf')
-
-        def road(node, curr, length):
-            if node == dest:
-                if length < self.minimal_length:
-                    self.minimal_length = length
-                    res[0] = curr
-                return
-            if node in visit: 
-                return 
+    def find_neighbour_in_edge(self, node):
+            if self.node1 != node:
+                return self.node1
+            
             else: 
-                visit.append(node)
-                for neighbor in self.graph[node]:
-                    if neighbor[1] <= power:
-                        road(neighbor[0], curr+[neighbor[0]], length + neighbor[2])
-        road(src, [src], 0)
-        return res[0] if res[0] else None
-    
-    def connected_components(self):
-        """
-        The algorithm goes through every node of the graph. 
-        For each node, it browses each neighbor of the considered node. 
-        Therefore the complexity is in O(V.E) where V and E represent 
-        respectively the number of nodes and edges .
-        Returns:
-            dictionary: contains all connections between nodes
-        """
-        connection = {}
-        for key, val in self.graph.items():
-            for i in range(len(val)):
-                connection[key] = connection.get(key, []) + [val[i][0]]
-        return connection 
-    
+                return self.node2
+
+
+class GraphNode:
+    def __init__(self, value, neighbours=None):
+        self.value = value
+        self.neighbours = neighbours or {}
+
+    def sort_edges_in_neighbours(self):
+        for neighbour, edges in self.neighbours.items():
+            sorted_edges = sorted(edges, key=lambda edge: edge.power, reverse=True)
+            self.neighbours[neighbour] = sorted_edges
+
+    def is_connected_with_power(self, target, truck_power=float("inf")):
+        visited = set()
+        stack = [self]
+
+        while stack:
+            node = stack.pop()
+
+            if node == target:
+                return True
+            
+            visited.add(node)
+                
+            for neighbour, edges in node.neighbours.items():
+                if neighbour not in visited:
+                    for edge in edges:
+                        if truck_power >= edge.power:
+                            stack.append(neighbour)
+                            break
+
+        return False
+
+
+class GraphRoute:
+    def __init__(self, source, destination, utility):
+        self.source = source
+        self.destination = destination
+        self.utility = utility 
+        self.available = True
+        self.power = -1
+
+
+class Graph:
+    def __init__(self):
+        self.nodes = {}
+        self.edges = []
+        self.minimum_spanning_tree = None
+        self.routes = []
+
+    def __str__(self):
+        if not self.nodes.keys():
+            output = "The graph is empty."
+
+        else:
+            output = f"The graph has {len(self.nodes)} nodes and {len(self.edges)} edges.\n"
+            for edge in self.edges:
+                source = edge.node1.value
+                destination = edge.node2.value
+                output += f"{source} --- {destination} with power {edge.power}\n"
+        
+        return output
+
+    def add_minimum_spanning_tree(self):
+        minimum_graph = kruskal(self)
+        self.minimum_spanning_tree = graph_to_tree(minimum_graph)
+
+    def connected_components(self, node_value):
+        node = self.nodes[node_value]
+
+        visited = set()
+        stack = [node]
+
+        while stack:
+            node = stack.pop()
+            
+            visited.add(node.value)
+                
+            for neighbour in node.neighbours.keys():
+                if neighbour.value not in visited:
+                    stack.append(neighbour)
+
+        return visited
+
     def connected_components_set(self):
-        """
-        The result should be a set of frozensets (one per component), 
-        For instance, for network01.in: 
-        {frozenset({1, 2, 3}), frozenset({4, 5, 6, 7})}
-        """
         result = set()
 
-        def road(node, curr):
-                if node in visit: 
-                    return 
-                else: 
-                    visit.add(node)
-                    for neighbor in self.graph[node]:
-                         road(neighbor[0], curr+[neighbor[0]])
+        for node in self.nodes.values():
+            if len(result) == len(self.nodes):
+                return result 
+            
+            if node.value not in result:
+                connect = self.connected_components(node.value)
+                result.add(frozenset(connect))
+
+        return result
+    
+    def sort_edges(self):
+        self.edges.sort(key=lambda edge: edge.power)
+        for node in self.nodes.values():
+            node.sort_edges_in_neighbours()
+
+    def associate_power_with_route(self, route):
+        source = route.source.value
+        destination = route.destination.value
+        power = self.minimum_spanning_tree.find_min_power(source, destination)
+
+        route.power = power
+
+    def get_path_given_power(self, source_value, destination_value, truck_power=float("inf")):
+        source = self.nodes[source_value]
+        destination = self.nodes[destination_value]
+
+        if not source.is_connected_with_power(destination, truck_power):
+            return None
         
-        for node in self.graph.keys():
-            if node not in result:
-                visit = set()
-                road(node, [node])
-                result.add(frozenset(visit))
-                
-        return result 
-    
-    def min_power(self, src, dest):
-        """
-        Should return path, min_power. 
-        The algorithm has the same complexity as get_path_with_power
-        """
-        res = [[], 0]
-        self.minimal_power = float('inf')
+        path, distance = self._shortest_path(source, destination, truck_power)
 
-        def road(node, curr, power):
-            if node == dest:
-                if self.minimal_power > power:
-                    self.minimal_power = power
-                    res[0] = curr
-                    res[1] = power
-                return
-            if node in curr[:len(curr)-1]: 
-                return 
+        if distance !=  -1:
+            return path, distance 
+        
+        else:
+            path, distance = self._shortest_path(destination, source, truck_power)
+            new_path = collections.deque()
+
+            for node in path:
+                new_path.appendleft(node)
+
+            return new_path, distance
+
+    def _shortest_path(self, source, destination, truck_power): 
+        peres = {node : None for node in self.nodes.values()}
+        distances = {node : -1 for node in self.nodes.values()}
+        distances[source] = 0
+        
+        dijkstra_with_distance(source, peres, distances, truck_power)
+
+        distance = distances[destination]
+        path = get_path_from_peres(source, destination, peres)
+
+        return path, distance 
+    
+    def get_min_power_path_using_dijkstra(self, source, destination): 
+        peres = {node : None for node in self.nodes.values()}
+        powers = {node : -1 for node in self.nodes.values()}
+        powers[source] = 0
+        
+        dijkstra_with_power(source, peres, powers)
+
+        power = powers[destination]
+        path = get_path_from_peres(source, destination, peres)
+
+        return path, power
+    
+    def get_min_power_path_from_MST(self, source, destination):
+        source = source.value
+        destination = destination.value
+        path = self.minimum_spanning_tree.find_min_power_path(source, destination)
+
+        return path
+
+
+def dfs_min_power(visited, node, destination, min_power):
+    if node == destination:
+        return min_power
+    
+    visited.add(node)
+
+    for neighbour, edges in node.neighbours.items():
+        if neighbour not in visited:
+            old_min_power = min_power
+            min_power = max(min_power, edges[0].power)
+            result = dfs_min_power(visited, neighbour, destination, min_power)
+            if result != -1:
+                return result
             else: 
-                for neighbor in self.graph[node]:
-                    temp = max(power, neighbor[1])
-                    road(neighbor[0], curr+[neighbor[0]], temp)
-        road(src, [src], 0)
-        return res if res else None
+                min_power = old_min_power
+
+    return -1
 
 
-def graph_from_file(filename):
-    """
-    Reads a text file and returns the graph as an object of the Graph class.
+def dijkstra_with_power(source, peres, powers):
+    heap = FibonacciHeap()
+    heap.insertion(source, 0)
 
-    The file should have the following format: 
-        The first line of the file is 'n m'
-        The next m lines have 'node1 node2 power_min dist' or 'node1 node2 
-        power_min' (if dist is missing, it will be set to 1 by default)
-        The nodes (node1, node2) should be named 1..n
-        All values are integers.
+    while heap.min_node:
+        node = heap.extract_min()
 
-    Parameters: 
-    -----------
-    filename: str
-        The name of the file
+        update_neighbours_power(node, heap, peres, powers)
+            
+def update_neighbours_power(node, heap, peres, powers):
+        for edges in node.neighbours.values():
+            for edge in edges:
+                neighbour = edge.find_neighbour_in_edge(node)
 
-    Outputs: 
-    -----------
-    G: Graph
-        An object of the class Graph with the graph from file_name.
-    """
-    # Opens the file
-    with open(filename, 'r') as f:
-        text = f.read()
-        # Selects lines 
-        L = text.split('\n')
-        # Creates the graph according to the correct format
-        nb_nodes = L[0].split(' ')[0]
-        nodes = [i+1 for i in range(int(nb_nodes))]
-        G = Graph(nodes)
-        # Builds edges between nodes 
-        for i in range(1, len(L)):
-            values = L[i].split(' ')
-            if len(values) == 4: #checks if a distance is mentionned
-                node1, node2, power_min, dist = values
-                G.add_edge(int(node1), int(node2), int(power_min), int(dist))
-            else: #the distance is not mentionned
-                node1, node2, power_min = values
-                G.add_edge(int(node1), int(node2), int(power_min))
-        return G
+                if (powers[neighbour] == -1
+                    or max(edge.power, powers[node]) < powers[neighbour]):
+                    peres[neighbour] = node
+                    powers[neighbour] = max(edge.power, powers[node])
 
+                    if heap.have_wrap(neighbour):
+                        heap.decrease_key(neighbour, powers[neighbour])
 
-def plot_graph(g):
-    from graphviz import Source
+                    else: 
+                        heap.insertion(neighbour, powers[neighbour])
+                                    
 
-    temp = """ graph{ """ 
+def dijkstra_with_distance(source, peres, distances, truck_power):
+    heap = FibonacciHeap()
+    heap.insertion(source, 0)
 
-    visit = []
-    for key, val in g.graph.items():
-        visit.append(key)
-        for neighbor in val:
-            if neighbor[0] not in visit:
-                temp += str(key) + "--" + str(neighbor[0]) + """[label= "p = """ + str(neighbor[1]) + ";d = " + str(neighbor[2]) + """ "]""" + ";" + "\n"
-    temp += """}"""
+    while heap.min_node:
+        node = heap.extract_min()
 
-    s = Source(temp, filename="Graph.gv", format="png")
-    s.view()
+        update_neighbours_distance(node, heap, peres, distances, truck_power)
+
+def update_neighbours_distance(node, heap, peres, distances, truck_power):
+        for edges in node.neighbours.values():
+            for edge in edges:
+                if truck_power >= edge.power:
+                    neighbour = edge.find_neighbour_in_edge(node)
+
+                    if (distances[neighbour] == -1 
+                        or distances[neighbour] >= distances[node] + edge.distance):
+                        peres[neighbour] = node
+                        distances[neighbour] = distances[node] + edge.distance
+
+                        if heap.have_wrap(neighbour):
+                            heap.decrease_key(neighbour, distances[neighbour])
+                            
+                        else:
+                            heap.insertion(neighbour, distances[neighbour])
+            
+def get_path_from_peres(source, destination, peres):
+    path = collections.deque()
+    path.append(destination.value)
     
-    
-    
-    
-    
-def find(parent, i):
-    if parent[i] != i:
-      # Reassignment of node's parent to root node as
-      # path compression requires
-        parent[i] = find(parent, parent[i])
-    return parent[i]
-    
-def union(parent, rank, x, y):
+    node = destination
 
-    if rank[x-1] < rank[y-1]:
-        parent[x-1] = y
-    elif rank[x-1] > rank[y-1]:
-        parent[y-1] = x
-    else:
-        parent[y-1] = x
-        rank[x-1] += 1
+    while node != source: 
+        node = peres[node]
+
+        if node is None:
+            return []
+        
+        path.appendleft(node.value)
+    
+    return path
+
 
 def kruskal(graph):
-        
-    result = Graph()
-    tree_edges = []
-
-    edges = []
-    visit = set()
-    for node, neighbors in g.graph.items():
-        for i in range(len(neighbors)):
-            neighbor =  neighbors[i][0]
-            if neighbor in visit:
-                power = neighbors[i][1]
-                edges.append([(node, neighbor), power]) 
-        visit.add(node)
-    sorted_edges = sorted(edges, key=lambda edge: edge[1])
-
+    new_graph = Graph()
     parent = {}
-    rank = []
+    rank = {}
 
-    for node in range(1, graph.nb_nodes+1):
-        parent.append(node)
-        rank.append(0)
+    for edge in graph.edges:
+        first_value = edge.node1.value
+        if first_value not in new_graph.nodes:
+            node = GraphNode(first_value)
+            new_graph.nodes[first_value] = node 
+            rank[node] = 0 
+            parent[node] = node
 
-    nb_edges = 0 
-    i = 0
-    while nb_edges < graph.nb_nodes - 1:
-        edge, power = sorted_edges[i]
-        node1, node2 = edge
-        i = i + 1
-        x = find(parent, node1)
-        y = find(parent, node2)
+        second_value = edge.node2.value
+        if second_value not in new_graph.nodes:
+            node = GraphNode(second_value)
+            new_graph.nodes[second_value] = node
+            rank[node] = 0
+            parent[node] = node
 
-        if x != y:
-            nb_edges = nb_edges + 1
-            tree_edges.append([(node1, node2), power])
-            result.add_edge(node1, node2, power)
-            union(parent, rank, x, y)
-        # Else discard the edge
+        new_edge = GraphEdge(new_graph.nodes[edge.node1.value], new_graph.nodes[edge.node2.value], edge.power, edge.distance)
+        node1 = find(parent, new_graph.nodes[edge.node1.value])
+        node2 = find(parent, new_graph.nodes[edge.node2.value])
 
-    minimumCost = 0
-    for edge, power in tree_edges:
-        minimumCost += power
-    print("The minimum cost is", str(minimumCost))
-    return result
+        if node1 != node2:
+            add_edge_to_Graph(new_graph, new_edge)
+            union(parent, rank, node1, node2)
 
+        if len(new_graph.edges) == len(graph.nodes) - 1 :
+            new_graph.sort_edges()
+            return new_graph
+    
+def find(parent, node):
+    if parent[node] != node:
+        parent[node] = find(parent, parent[node])
+
+    return parent[node]
+    
+def union(parent, rank, node1, node2):
+
+    if rank[node1] < rank[node2]:
+        parent[node1] = node2
+
+    elif rank[node1] > rank[node2]:
+        parent[node2] = node1
+
+    else:
+        parent[node2] = node1
+        rank[node1] += 1
+
+
+def graph_to_tree(graph):
+    starting_node = graph.edges[0].node1
+    root = TreeNode(starting_node.value, 0)
+    spanning_tree = Tree(root)
+    spanning_tree.nodes[root.value] = root
+    stack = [(starting_node, root)]
+    visited = set([starting_node])
+
+    while stack:
+        node, tree_node = stack.pop()
+        for neighbour in node.neighbours.keys():
+            if neighbour not in visited:
+                edge = node.neighbours[neighbour][0]
+                child = TreeNode(neighbour.value, edge.power, tree_node)
+                spanning_tree.nodes[neighbour.value] = child
+                tree_node.children.append(child)
+                stack.append((neighbour, child))
+                visited.add(neighbour)
+
+    return spanning_tree
+
+
+def estimated_time_processing_using_dijkstra(graph):
+    start = time.perf_counter()
+    count = 0
+
+    for route in graph.routes:
+        graph.get_min_power_path_using_dijkstra(route.source.value, route.destination.value) 
+        count += 1
+
+        if count > 5:
+            break 
+
+    end = time.perf_counter()
+    mean = (end-start)/10
+    estimated_time = (mean * len(graph.routes))/3600
+    
+    return f"It will take around {estimated_time} hours processing."
+
+def estimated_time_processing_from_MST(graph):
+    start = time.perf_counter()
+    count = 0
+
+    for route in graph.routes:
+        graph.minimum_spanning_tree.find_min_power(route.source.value, route.destination.value)
+        count += 1
+
+        if count > 5:
+            break 
+
+    end = time.perf_counter()
+    mean = (end-start)/5
+    estimated_time = mean * len(graph.routes) 
+    
+    return f"It will take around {int(estimated_time)} seconds processing."             
+     
+
+def graph_from_file(network_filename, route_filename):
+    print("The graph is being created...")
+    nb_nodes, edges_of_graph = open_network_file(network_filename)
+    graph = Graph()
+
+    set_nodes_to_graph(nb_nodes, graph)
+    set_edges_to_graph(edges_of_graph, graph)
+    graph.sort_edges()
+
+    graph.add_minimum_spanning_tree()
+    set_routes_to_graph(route_filename, graph)
+    graph.routes.sort(key=lambda route: route.utility, reverse=True)
+
+    return graph
+
+def open_network_file(network):
+    with open(network, 'r') as file:
+        input = file.read()
+        lines = input.split("\n")
+        first_line = lines[0]
+
+        nb_nodes = get_data_from_line(first_line)[0]
+        edges_of_graph = lines[1:]
+
+        return nb_nodes, edges_of_graph
+
+def set_nodes_to_graph(nb_nodes, graph):
+    for value in range(1, nb_nodes + 1):
+        graph.nodes[value] = GraphNode(value) 
+
+def get_data_from_line(line):
+    raw_data = line.split(' ')
+    
+    return [int(data) for data in raw_data]
+
+def set_edges_to_graph(graph_edges, graph):
+    for line in graph_edges:
+        edge = get_data_from_line(line)
+        nb_info = len(edge)
+
+        if nb_info == 4:
+            node1_value, node2_value, power, distance = edge
+
+        if nb_info == 3:
+            node1_value, node2_value, power = edge
+            distance = 1
+
+        node1 = graph.nodes[node1_value]
+        node2 = graph.nodes[node2_value]
+        
+        new_edge = GraphEdge(node1, node2, power, distance)
+        add_edge_to_Graph(graph, new_edge)
+
+def add_edge_to_Graph(graph, edge):
+    graph.edges.append(edge)
+    
+    set_edge_to_nodes(edge)
+
+def set_edge_to_nodes(edge):
+            node1 = edge.node1
+            node2 = edge.node2
+
+            if node1 not in node2.neighbours:
+                node2.neighbours[node1] = [edge]
+                node1.neighbours[node2] = [edge]
+
+            else:
+                node2.neighbours[node1].append(edge)
+                node1.neighbours[node2].append(edge)
+
+def set_routes_to_graph(route_file, graph):
+    graph_routes = open_route_file(route_file)
+
+    for line in graph_routes:
+        route = get_data_from_line(line)
+        node1_value, node2_value, utility = route
+
+        node1 = graph.nodes[node1_value]
+        node2 = graph.nodes[node2_value]
+        
+        new_route = GraphRoute(node1, node2, utility)
+        graph.routes.append(new_route)
+        graph.associate_power_with_route(new_route)
+
+def open_route_file(filename):
+    with open(filename, 'r') as file:
+        input = file.read()
+        lines = input.split("\n")
+
+        routes_of_graph = lines[1:]
+
+        return routes_of_graph
+    
+
+def create_displayable_network(graph):
+    G = nx.Graph()
+
+    for node_value in graph.nodes.keys():
+        G.add_node(node_value)
+    
+    for edge in graph.edges:
+        node1 = edge.node1.value
+        node2 = edge.node2.value
+        G.add_edge(node1, node2, distance=edge.distance)
+
+    return G
+
+def display_network(network, title):
+    node_positions = nx.spring_layout(network, seed=42)
+
+    plt.figure()
+    nx.draw(network, node_positions, with_labels=True, node_color='lightblue', font_weight='bold')
+    plt.savefig(title)
+    plt.close()
+
+def create_displayable_route(network, graph, source_value, destination_value):
+    source = graph.nodes[source_value]
+    destination = graph.nodes[destination_value]
+
+    path_nodes = graph.get_min_power_path_from_MST(source, destination)
+
+    edges_from_path_nodes = []
+    for n1, n2 in network.edges():
+        if n1 in path_nodes and n2 in path_nodes:
+            index1 =  path_nodes.index(n1)
+            index2 = path_nodes.index(n2)
+            
+            if index1 == index2-1 or index2 == index1-1:
+                edges_from_path_nodes.append((n1, n2))
+
+    route = network.edge_subgraph(edges_from_path_nodes)
+
+    return route
+
+def display_route(network, route, title):
+    node_positions = nx.spring_layout(network, seed=42)
+
+    plt.figure()
+    edge_labels = nx.get_edge_attributes(route, 'distance')
+    nx.draw(route, node_positions, with_labels=True, node_color='lightblue', font_weight='bold')
+    nx.draw_networkx_edge_labels(network, node_positions, edge_labels=edge_labels)
+    plt.savefig(title)

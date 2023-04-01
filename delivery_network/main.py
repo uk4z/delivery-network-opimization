@@ -1,13 +1,40 @@
-from graph import *
+from delivery_network import *
+               
 
-network_filename = "input/network.2.in"
-route_filename = "input/route.2.in"
+def write_min_power_in_output_file(filename, graph):
+    print(estimated_time_processing_from_MST(graph))
+    spanning_graph = kruskal(graph)
+    tree = graph_to_tree(spanning_graph)
+
+    with open(filename, "w") as file:
+        for route in graph.routes:
+            source = route.source
+            destination = route.destination
+
+            power = tree.find_min_power(source.value, destination.value)
+
+            line = f"{source.value} {destination.value} {power}\n"
+            file.write(line)
+
+
+
+
+network_filename = "input/network.1.in"
+route_filename = "input/route.1.in"
 truck_filename = "input/truck.2.in"
 
 delivery_network = deliveryNetwork_from_file(network_filename, route_filename, truck_filename)
 
 budget = 25*(10**9)
 
-trucks_collection, profit = delivery_network.to_buy_with_budget(budget)
+""" network = create_displayable_network(delivery_network.graph)
+display_network(network, "graph")
+route = create_displayable_route(network, delivery_network.graph, 1, 5)
+display_route(network, route, "path") """
 
+"""
+trucks_collection, profit = delivery_network.to_buy_with_budget(budget)
 print(profit)
+ """
+
+plot_collections(delivery_network, budget)
