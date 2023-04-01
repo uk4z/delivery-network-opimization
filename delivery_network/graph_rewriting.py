@@ -1,5 +1,3 @@
-import sys 
-sys.path.append("D:\Coding files\Delivery network\Fibonacci Heap")
 from fibonacci_heap import FibonacciHeap
 import collections
 import time
@@ -18,22 +16,32 @@ class DeliveryNetwork:
         route_index = 0
 
         while truck_index < nb_trucks and route_index < nb_routes:
-            truck = self.trucks[truck_index]
             route = self.graph.routes[route_index]
+            index = truck_index
+            optimized_truck_index = None
 
-            if truck.power >= route.power:
-                truck.profit = route.utility
-                truck_index += 1
-                route_index += 1
+            while index < nb_trucks:
+                truck = self.trucks[index]
+
+                if truck.power < route.power:
+                    break
+
+                optimized_truck_index = index if truck.available else optimized_truck_index
+                index += 1
             
-            else:
-                route_index += 1
+            if optimized_truck_index is not None:
+                truck = self.trucks[optimized_truck_index] 
+                truck.profit = route.utility
+                truck.available = False
+                
+            truck_index += 1
+            route_index += 1
 
     def to_buy_with_budget(self, budget):
         mutation_rate = 0.1
         nb_solutions = 15
-        nb_iterations = 100
-        solution , profit = genetic_algorithm(self.trucks, budget, nb_solutions, nb_iterations, mutation_rate )
+        running_time = 20 
+        solution , profit = genetic_algorithm(self.trucks, budget, nb_solutions, mutation_rate, running_time )    
         set_of_trucks = []
 
         for i in range(len(solution)):
@@ -145,16 +153,19 @@ def best_solution(solutions, trucks):
 
     return best_solution, max_profit
 
-def genetic_algorithm(trucks, budget, nb_solutions, nb_iterations, mutation_rate):
+def genetic_algorithm(trucks, budget, nb_solutions, mutation_rate, running_time):
     solutions = initial_solutions(nb_solutions, trucks, budget)
     profits = {}
-    i = 0 
 
-    while i < nb_iterations :
+    timer = 0
+    ref_time = time.time()
+    while timer <= running_time:
         solutions = create_new_solutions(trucks, solutions, mutation_rate, budget)
         solution, profit = best_solution(solutions, trucks)
         profits[profit] = solution
-        i += 1
+        
+        current_time = time.time()
+        timer = round(current_time-ref_time)
 
     max_profit = max(profits.keys())
 
@@ -167,6 +178,7 @@ class Truck:
     def __init__(self, cost, truck_power):
         self.cost = cost 
         self.power = truck_power
+        self.available = True
         self.profit = 0 
 
 
