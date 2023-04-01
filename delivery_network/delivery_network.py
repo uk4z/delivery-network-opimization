@@ -252,7 +252,6 @@ def plot_collections(delivery_network, budget):
             routes.append(dis_route)
 
     for route in routes:
-        # display_route(network, route, "path")
         node_positions = nx.spring_layout(network, seed=42)
 
         nx.draw(route, node_positions, with_labels=True, node_color='lightblue', font_weight='bold')
