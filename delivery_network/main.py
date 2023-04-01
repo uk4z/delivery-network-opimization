@@ -24,17 +24,7 @@ route_filename = "input/route.1.in"
 truck_filename = "input/truck.2.in"
 
 delivery_network = deliveryNetwork_from_file(network_filename, route_filename, truck_filename)
-
 budget = 25*(10**9)
 
-""" network = create_displayable_network(delivery_network.graph)
-display_network(network, "graph")
-route = create_displayable_route(network, delivery_network.graph, 1, 5)
-display_route(network, route, "path") """
-
-"""
-trucks_collection, profit = delivery_network.to_buy_with_budget(budget)
-print(profit)
- """
 
 plot_collections(delivery_network, budget)
