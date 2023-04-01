@@ -3,76 +3,170 @@ sys.path.append("D:\Coding files\Delivery network\Fibonacci Heap")
 from fibonacci_heap import FibonacciHeap
 import collections
 import time
+import random
 
 
 class DeliveryNetwork:
     def __init__(self, graph):
         self.graph = graph
-        self.trucks = {}
-        self.not_available_routes = set()
+        self.trucks = []
 
-    def add_truck(self, truck):
-        cost = truck.cost 
+    def set_profit_to_truck(self):
+        nb_trucks = len(self.trucks)
+        nb_routes = len(self.graph.routes)
+        truck_index = 0
+        route_index = 0
 
-        if cost in self.trucks:
-            self.trucks[cost].append(truck)
-            self.trucks[cost].sort(key=lambda truck: truck.truck_power, reverse=True)
-        
-        else: 
-            self.trucks[cost] = [truck]
+        while truck_index < nb_trucks and route_index < nb_routes:
+            truck = self.trucks[truck_index]
+            route = self.graph.routes[route_index]
 
-    def set_profit_to_truck(self, truck):
-        truck_power = truck.truck_power
-        
-        while truck_power >= 0:
-            if truck_power in self.graph.powerRoutes:
-                for route in self.graph.powerRoutes[truck_power]:
-                    if route not in self.not_available_routes:
-                        truck.profit = route.utility
-                        self.not_available_routes.add(route)
-                        return 
-            truck_power -= 1
+            if truck.power >= route.power:
+                truck.profit = route.utility
+                truck_index += 1
+                route_index += 1
+            
+            else:
+                route_index += 1
 
     def to_buy_with_budget(self, budget):
-        already_computed_solutions = {}
-        truck_costs = list(self.trucks.keys())
-        truck_profits = []
-        nb_trucks = len(self.trucks)
+        mutation_rate = 0.1
+        nb_solutions = 15
+        nb_iterations = 100
+        solution , profit = genetic_algorithm(self.trucks, budget, nb_solutions, nb_iterations, mutation_rate )
+        set_of_trucks = []
 
-        for trucks in self.trucks.values():
-            for truck in trucks:
-                truck_profits.append(truck.profit)
+        for i in range(len(solution)):
+            if solution[i] == 1:
+                set_of_trucks.append(self.trucks[i])
+        
+        return set_of_trucks, profit
 
-        "Starting to get the highest profit..."
 
-        knapsack(already_computed_solutions, budget, truck_costs, truck_profits, nb_trucks)
+def create_random_solution(size):
+    solution = []
+    for i in range(0, size):
+        solution.append(random.randint(0, 1))
+    return solution
+
+def valid_solution(trucks, solution, budget):
+    nb_trucks = len(trucks)
+    total_cost = 0
+
+    for i in range(nb_trucks):
+        if solution[i] == 1:
+            total_cost += trucks[i].cost
+
+            if total_cost > budget:
+                return False
+        
+    return True
+
+def calculate_profit(trucks, solution):
+    nb_trucks = len(trucks)
+    total_profit = 0
+
+    for i in range(nb_trucks):
+        if solution[i] == 1:
+            total_profit += trucks[i].profit
+        
+    return total_profit
+
+def initial_solutions(pop_size, trucks, budget):
+    solutions = []
+    i = 0
+    while i < pop_size:
+        new_solution = create_random_solution(len(trucks))
+
+        if valid_solution(trucks, new_solution, budget):
+            if new_solution not in solutions:
+                solutions.append(new_solution)
+                i += 1
+            
+    return solutions
+
+def tournament_selection(trucks, solutions):
+    pop_size = len(solutions)
+    id1 = random.randint(0, pop_size - 1)
+    id2 = random.randint(0, pop_size - 1)
+
+    solution1 = solutions[id1]
+    solution2 = solutions[id2]
+
+    profit1 = calculate_profit(trucks, solution1)
+    profit2 = calculate_profit(trucks, solution2)
+
+    if profit1 > profit2:
+        return solution1
     
-        return already_computed_solutions[nb_trucks]
+    else: 
+        return solution2
+
+def crossover(solution1, solution2, trucks, budget):
+    while True:
+        break_point = random.randint(0, len(solution1))
+        first_part = solution1[:break_point]
+        second_part = solution2[break_point:]
+        new_solution = first_part + second_part
+
+        if valid_solution(trucks, new_solution, budget):
+            return new_solution
+
+def mutation(solution, trucks, budget):
+    while True: 
+        mutated_solution = solution
+        index_1, index_2 = random.sample(range(0, len(solution)), 2)
+        mutated_solution[index_1], mutated_solution[index_2] = mutated_solution[index_2], mutated_solution[index_1]
+
+        if valid_solution(trucks, mutated_solution, budget):
+            return mutated_solution
+
+def create_new_solutions(trucks, solutions, mut_rate, budget):
+    new_solutions = []
+    for i in range(0, len(solutions)):
+        solution1 = tournament_selection(trucks, solutions)
+        solution2 = tournament_selection(trucks, solutions)
+        solution = crossover(solution1, solution2, trucks, budget)
+
+        if random.random() <= mut_rate:
+            solution = mutation(solution, trucks, budget)
+
+        new_solutions.append(solution)
+    return new_solutions
+
+def best_solution(solutions, trucks):
+    max_profit = 0
+    best_solution = []
+    for solution in solutions:
+        profit = calculate_profit(trucks, solution)
+        if profit > max_profit:
+            max_profit = profit
+            best_solution = solution
+
+    return best_solution, max_profit
+
+def genetic_algorithm(trucks, budget, nb_solutions, nb_iterations, mutation_rate):
+    solutions = initial_solutions(nb_solutions, trucks, budget)
+    profits = {}
+    i = 0 
+
+    while i < nb_iterations :
+        solutions = create_new_solutions(trucks, solutions, mutation_rate, budget)
+        solution, profit = best_solution(solutions, trucks)
+        profits[profit] = solution
+        i += 1
+
+    max_profit = max(profits.keys())
+
+    return profits[max_profit], max_profit
 
 
-def knapsack(already_computed_solutions, budget, truck_costs, truck_profits, nb_trucks):
-    if nb_trucks == 0 or budget == 0:
-        return 0
-
-    if truck_costs[nb_trucks - 1] > budget:
-        return knapsack(already_computed_solutions, budget, truck_costs, truck_profits, nb_trucks - 1)
-
-    if nb_trucks in already_computed_solutions:
-        return already_computed_solutions[nb_trucks]
-
-    value_picked = truck_profits[nb_trucks - 1] + knapsack(already_computed_solutions, budget-truck_costs[nb_trucks - 1], truck_costs, truck_profits, nb_trucks - 1)
-    value_notpicked = knapsack(already_computed_solutions, budget, truck_costs, truck_profits, nb_trucks - 1)
-    value_max = max(value_picked, value_notpicked)
-
-    already_computed_solutions[nb_trucks] = value_max
-
-    return value_max
 
 
 class Truck:
     def __init__(self, cost, truck_power):
         self.cost = cost 
-        self.truck_power = truck_power
+        self.power = truck_power
         self.profit = 0 
 
 
@@ -184,13 +278,13 @@ class GraphRoute:
         self.source = source
         self.destination = destination
         self.utility = utility 
+        self.power = -1
 
 
 class Graph:
     def __init__(self):
         self.nodes = {}
         self.edges = []
-        self.powerRoutes = {}
         self.minimum_spanning_tree = None
         self.routes = []
 
@@ -251,11 +345,7 @@ class Graph:
         destination = route.destination.value
         power = self.minimum_spanning_tree.find_min_power(source, destination)
 
-        if power not in self.powerRoutes.keys():
-            self.powerRoutes[power] = [route]
-
-        else: 
-            self.powerRoutes[power].append(route)
+        route.power = power
 
     def get_path_given_power(self, source_value, destination_value, truck_power=float("inf")):
         source = self.nodes[source_value]
@@ -485,6 +575,15 @@ def deliveryNetwork_from_file(network_filename, route_filename, truck_filename):
     delivery_network = DeliveryNetwork(graph)
 
     set_truck_to_delivery_network(truck_filename, delivery_network)
+    delivery_network.trucks.sort(key=lambda truck: truck.power, reverse=True)
+
+    print("Starting to assigned profits to trucks...")
+
+    delivery_network.set_profit_to_truck()
+
+    print("Delivery network is ready.")
+
+
     return delivery_network
 
 def graph_from_file(network_filename, route_filename):
@@ -499,7 +598,7 @@ def graph_from_file(network_filename, route_filename):
     graph.add_minimum_spanning_tree()
     set_routes_to_graph(route_filename, graph)
     graph.routes.sort(key=lambda route: route.utility, reverse=True)
-    print("The graph has been created.")
+
     return graph
 
 def open_network_file(network):
@@ -584,13 +683,14 @@ def open_route_file(filename):
 def set_truck_to_delivery_network(truck_file, delivery_network):
     trucks_info = open_truck_file(truck_file)
 
+    i = 0
     for line in trucks_info:
+        i += 1
         truck = get_data_from_line(line)
         truck_power, cost = truck
         
         new_truck = Truck(truck_power, cost)
-        delivery_network.add_truck(new_truck)
-        delivery_network.set_profit_to_truck(new_truck)
+        delivery_network.trucks.append(new_truck)
 
 def open_truck_file(filename):
     with open(filename, 'r') as file:
