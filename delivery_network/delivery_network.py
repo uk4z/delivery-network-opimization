@@ -251,10 +251,7 @@ def plot_collections(delivery_network, budget):
         
             routes.append(dis_route)
 
-    count = 0
     for route in routes:
-        count += 1
-        print(count)
         # display_route(network, route, "path")
         node_positions = nx.spring_layout(network, seed=42)
 
