@@ -58,7 +58,7 @@ class DeliveryNetwork:
     def to_buy_with_budget(self, budget):
         mutation_rate = 0.1
         nb_solutions = 15
-        running_time = 10
+        running_time = 20
         print(f"Getting the optimal collection of trucks will take around {running_time} seconds.")
 
         if len(self.trucks) > len(self.graph.routes):
@@ -71,16 +71,18 @@ class DeliveryNetwork:
         else: 
             trucks = self.trucks
 
-        solution , profit, expected_profit = genetic_algorithm(trucks, budget, nb_solutions, mutation_rate, running_time)
+        solution , gain, expected_profit = genetic_algorithm(trucks, budget, nb_solutions, mutation_rate, running_time)
 
         set_of_trucks = []
         total_gas_cost = 0
         for i in range(len(solution)):
             if solution[i] == 1:
                 set_of_trucks.append(self.trucks[i])
-                total_gas_cost += self.trucks[i].route.cost
+                if self.trucks[i].route is not None:
+                    total_gas_cost += self.trucks[i].route.cost
         
         expected_gain = int(expected_profit - total_gas_cost)
+        profit = int(gain - total_gas_cost)
         return set_of_trucks, profit, expected_gain
 
 
@@ -186,18 +188,18 @@ def create_new_solutions(trucks, solutions, mut_rate, budget):
     return new_solutions
 
 def best_solution(solutions, trucks):
-    max_profit = 0
-    best_solution_expected_profit = 0
+    max_expected_profit = 0
+    best_solution_profit = 0
     best_solution = []
     for solution in solutions:
         profit = calculate_profit(trucks, solution)
         expected_profit = calculate_expected_profit(trucks, solution)
-        if profit > max_profit:
-            max_profit = profit
+        if expected_profit > max_expected_profit:
+            max_expected_profit = expected_profit
             best_solution = solution
-            best_solution_expected_profit = expected_profit
+            best_solution_profit = profit
 
-    return best_solution, max_profit, best_solution_expected_profit
+    return best_solution, best_solution_profit, max_expected_profit
 
 def genetic_algorithm(trucks, budget, nb_solutions, mutation_rate, running_time):
     solutions = initial_solutions(nb_solutions, trucks, budget)
