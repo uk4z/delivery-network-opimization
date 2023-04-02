@@ -1,18 +1,19 @@
-import random 
 from graph import *
+import random 
 
 class Truck:
     def __init__(self, cost, truck_power):
         self.cost = cost 
         self.power = truck_power
+        self.route = None
         self.available = True
-        self.profit = 0 
-
 
 class DeliveryNetwork:
     def __init__(self, graph):
         self.graph = graph
         self.trucks = []
+        self.station = None
+        self.gas_price = 0
 
     def set_profit_to_truck(self):
         nb_trucks = len(self.trucks)
@@ -22,6 +23,11 @@ class DeliveryNetwork:
 
         while truck_index < nb_trucks and route_index < nb_routes:
             route = self.graph.routes[route_index]
+
+            if route.power is None:
+                route_index += 1
+                continue
+
             index = truck_index
             optimized_truck_index = None
 
@@ -43,7 +49,7 @@ class DeliveryNetwork:
             else:
                 truck = self.trucks[optimized_truck_index] 
                 
-                truck.profit = route.utility
+                truck.route = route
                 truck.available = False
 
                 if optimized_truck_index == truck_index:
@@ -65,14 +71,17 @@ class DeliveryNetwork:
         else: 
             trucks = self.trucks
 
-        solution , profit = genetic_algorithm(trucks, budget, nb_solutions, mutation_rate, running_time )    
+        solution , profit, expected_profit = genetic_algorithm(trucks, budget, nb_solutions, mutation_rate, running_time)
+
         set_of_trucks = []
-        
+        total_gas_cost = 0
         for i in range(len(solution)):
             if solution[i] == 1:
                 set_of_trucks.append(self.trucks[i])
+                total_gas_cost += self.trucks[i].route.cost
         
-        return set_of_trucks, profit
+        expected_gain = int(expected_profit - total_gas_cost)
+        return set_of_trucks, profit, expected_gain
 
 
 def create_random_solution(size):
@@ -100,7 +109,17 @@ def calculate_profit(trucks, solution):
 
     for i in range(nb_trucks):
         if solution[i] == 1:
-            total_profit += trucks[i].profit
+            total_profit += trucks[i].route.utility
+        
+    return total_profit
+
+def calculate_expected_profit(trucks, solution):
+    nb_trucks = len(trucks)
+    total_profit = 0
+
+    for i in range(nb_trucks):
+        if solution[i] == 1:
+            total_profit += trucks[i].route.expected_utility
         
     return total_profit
 
@@ -168,14 +187,17 @@ def create_new_solutions(trucks, solutions, mut_rate, budget):
 
 def best_solution(solutions, trucks):
     max_profit = 0
+    best_solution_expected_profit = 0
     best_solution = []
     for solution in solutions:
         profit = calculate_profit(trucks, solution)
+        expected_profit = calculate_expected_profit(trucks, solution)
         if profit > max_profit:
             max_profit = profit
             best_solution = solution
+            best_solution_expected_profit = expected_profit
 
-    return best_solution, max_profit
+    return best_solution, max_profit, best_solution_expected_profit
 
 def genetic_algorithm(trucks, budget, nb_solutions, mutation_rate, running_time):
     solutions = initial_solutions(nb_solutions, trucks, budget)
@@ -185,20 +207,24 @@ def genetic_algorithm(trucks, budget, nb_solutions, mutation_rate, running_time)
     ref_time = time.time()
     while timer <= running_time:
         solutions = create_new_solutions(trucks, solutions, mutation_rate, budget)
-        solution, profit = best_solution(solutions, trucks)
-        profits[profit] = solution
+        solution, profit, expected_profit = best_solution(solutions, trucks)
+        profits[profit] = [solution, expected_profit]
         
         current_time = time.time()
         timer = round(current_time-ref_time)
 
     max_profit = max(profits.keys())
 
-    return profits[max_profit], max_profit
+    solution = profits[max_profit][0]
+    expected_profit = profits[max_profit][1]
+    return solution, max_profit, expected_profit
 
 
-def deliveryNetwork_from_file(network_filename, route_filename, truck_filename):
-    graph = graph_from_file(network_filename, route_filename)
+def deliveryNetwork_from_file(network_filename, route_filename, truck_filename, station, gas_price):
+    graph = graph_from_file(network_filename, route_filename, station, gas_price)
     delivery_network = DeliveryNetwork(graph)
+    delivery_network.station = station
+    delivery_network.gas_price = gas_price
 
     set_truck_to_delivery_network(truck_filename, delivery_network)
     delivery_network.trucks.sort(key=lambda truck: truck.power, reverse=True)
@@ -236,7 +262,7 @@ def open_truck_file(filename):
 
 
 def plot_collections(delivery_network, budget):
-    trucks_collection, profit = delivery_network.to_buy_with_budget(budget)
+    trucks_collection, profit, expected_gain = delivery_network.to_buy_with_budget(budget)
 
     network = create_displayable_network(delivery_network.graph)
     display_network(network, "graph")
@@ -244,10 +270,7 @@ def plot_collections(delivery_network, budget):
     routes = []
     for route in delivery_network.graph.routes:
         if not route.available:
-            source_value = route.source.value
-            destination_value = route.destination.value
-
-            dis_route = create_displayable_route(network, delivery_network.graph, source_value, destination_value)
+            dis_route = create_displayable_route(network, delivery_network.graph, route)
         
             routes.append(dis_route)
 
