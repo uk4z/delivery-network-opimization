@@ -61,15 +61,11 @@ class DeliveryNetwork:
         running_time = 20
         print(f"Getting the optimal collection of trucks will take around {running_time} seconds.")
 
-        if len(self.trucks) > len(self.graph.routes):
-            trucks = []
-            for i in range(len(self.trucks)):
-                truck = self.trucks[-(i+1)]
-                if not truck.available:
-                    trucks.append(truck)
-
-        else: 
-            trucks = self.trucks
+        trucks = []
+        for i in range(len(self.trucks)):
+            truck = self.trucks[-(i+1)]
+            if truck.route is not None:
+                trucks.append(truck)
 
         solution , gain, expected_profit = genetic_algorithm(trucks, budget, nb_solutions, mutation_rate, running_time)
 
@@ -78,8 +74,7 @@ class DeliveryNetwork:
         for i in range(len(solution)):
             if solution[i] == 1:
                 set_of_trucks.append(self.trucks[i])
-                if self.trucks[i].route is not None:
-                    total_gas_cost += self.trucks[i].route.cost
+                total_gas_cost += trucks[i].route.cost
         
         expected_gain = int(expected_profit - total_gas_cost)
         profit = int(gain - total_gas_cost)
