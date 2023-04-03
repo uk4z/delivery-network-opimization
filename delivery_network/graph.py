@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 
 
 class GraphEdge:
-    def __init__(self, node1=None, node2=None, power=0, distance=1):
+    def __init__(self, node1, node2, power=0, distance=1):
         self.node1 = node1
         self.node2 = node2
         self.power = power
@@ -22,13 +22,6 @@ class GraphEdge:
 
         return f"{source} --- {destination}"
     
-    def find_neighbour_in_edge(self, node):
-            if self.node1 != node:
-                return self.node1
-            
-            else: 
-                return self.node2
-
 
 class GraphNode:
     def __init__(self, value, neighbours=None):
@@ -46,19 +39,25 @@ class GraphNode:
 
         while stack:
             node = stack.pop()
+            visited.add(node)
 
             if node == target:
                 return True
-            
-            visited.add(node)
-                
-            for neighbour, edges in node.neighbours.items():
-                if neighbour not in visited:
-                    for edge in edges:
-                        if truck_power >= edge.power:
-                            stack.append(neighbour)
-                            break
+                            
+            for neighbour in node.neighbours.keys():
+                if neighbour not in visited and node.can_reach_neighbour(neighbour, truck_power):
+                    stack.append(neighbour)
 
+        return False
+
+    def can_reach_neighbour(self, neighbour, truck_power):
+        if neighbour not in self.neighbours.keys():
+            return False
+        
+        for edge in self.neighbours[neighbour]:
+            if truck_power >= edge.power:
+                return True
+        
         return False
 
 
@@ -66,20 +65,23 @@ class GraphRoute:
     def __init__(self, source, destination, utility):
         self.source = source
         self.destination = destination
-        self.utility = utility 
+        self.utility = utility
+        self.expected_utility = 0 
         self.cost = 0
-        self.expected_utility = 0
-        self.available = True
         self.power = 0
+        self.available = True
+        
 
 
 class Graph:
     def __init__(self):
         self.nodes = {}
         self.edges = []
-        self.minimum_spanning_tree = None
         self.routes = []
+        self.MST = None
+        self.station = None
         self.gas_price = 0
+        self.broke_probability = 0
 
     def __str__(self):
         if not self.nodes.keys():
@@ -94,10 +96,6 @@ class Graph:
         
         return output
 
-    def add_minimum_spanning_tree(self, station):
-        minimum_graph = kruskal(self)
-        self.minimum_spanning_tree = graph_to_tree(minimum_graph, station)
-
     def connected_components(self, node_value):
         node = self.nodes[node_value]
 
@@ -105,8 +103,7 @@ class Graph:
         stack = [node]
 
         while stack:
-            node = stack.pop()
-            
+            node = stack.pop() 
             visited.add(node.value)
                 
             for neighbour in node.neighbours.keys():
@@ -119,9 +116,6 @@ class Graph:
         result = set()
 
         for node in self.nodes.values():
-            if len(result) == len(self.nodes):
-                return result 
-            
             if node.value not in result:
                 connect = self.connected_components(node.value)
                 result.add(frozenset(connect))
@@ -130,207 +124,158 @@ class Graph:
     
     def sort_edges(self):
         self.edges.sort(key=lambda edge: edge.power)
+
         for node in self.nodes.values():
             node.sort_edges_in_neighbours()
 
-    def associate_power_with_route(self, route, broke_routes=True): 
+    def set_route_characteristics(self, route, broke=True): 
         source = route.source.value
         destination = route.destination.value
-        epsilon = 0.001
-        power, route_cost  = self.minimum_spanning_tree.find_min_power(source, destination, self.gas_price, broke_routes)
-        nb_edges = self.minimum_spanning_tree.nb_edges_in_route(source, destination)
-        probability_of_success = (1-epsilon)**nb_edges
-        probability_of_failure = 1-probability_of_success
+        epsilon = self.broke_probability
 
-        route.expected_utility = route.utility*(probability_of_success - probability_of_failure)
-
-        if power is None:
-            route.utility = 0
-            route.power = 0
-
-        else:
-            route.power = power       
+        power, route_cost, nb_edges  = self.MST.route_characteristics(source, destination, broke, 
+                                                                      power=True, 
+                                                                      cost=True, 
+                                                                      number_of_edges=True)
         
+        success_proba = (1-epsilon)**nb_edges
+        failure_proba = 1-success_proba
+
+        route.expected_utility = route.utility*(success_proba - failure_proba)
+
+        if nb_edges == -1:
+            route.available = False
+            
+        route.power = power       
         route.cost = route_cost    
         
-
-
-    def get_path_given_power(self, source_value, destination_value, truck_power=float("inf")):
-        source = self.nodes[source_value]
-        destination = self.nodes[destination_value]
-
+    def get_path_given_power(self, source, destination, truck_power=float("inf")):
+        parents = {node : None for node in self.nodes.values()}
+        distances = {node: 0 if node == source else -1 for node in self.nodes.values()}
+        
         if not source.is_connected_with_power(destination, truck_power):
             return None
         
-        path, distance = self._shortest_path(source, destination, truck_power)
-
-        if distance !=  -1:
-            return path, distance 
-        
-        else:
-            path, distance = self._shortest_path(destination, source, truck_power)
-            new_path = collections.deque()
-
-            for node in path:
-                new_path.appendleft(node)
-
-            return new_path, distance
-
-    def _shortest_path(self, source, destination, truck_power): 
-        peres = {node : None for node in self.nodes.values()}
-        distances = {node : -1 for node in self.nodes.values()}
-        distances[source] = 0
-        
-        dijkstra_with_distance(source, peres, distances, truck_power)
+        dijkstra_with_distance(source, parents, distances, truck_power)
 
         distance = distances[destination]
-        path = get_path_from_peres(source, destination, peres)
+        path = get_path_from_parents(source, destination, parents)
 
         return path, distance 
     
     def get_min_power_path_using_dijkstra(self, source, destination): 
-        peres = {node : None for node in self.nodes.values()}
-        powers = {node : -1 for node in self.nodes.values()}
-        powers[source] = 0
+        parents = {node : None for node in self.nodes.values()}
+        powers = {node : 0 if node == source else -1 for node in self.nodes.values()}
         
-        dijkstra_with_power(source, peres, powers)
+        dijkstra_with_power(source, parents, powers)
 
         power = powers[destination]
-        path = get_path_from_peres(source, destination, peres)
+        path = get_path_from_parents(source, destination, parents)
 
         return path, power
     
-    def get_min_power_path_from_MST(self, route, broke_routes=True):
+    def get_min_power_path_from_MST(self, route, broke=True):
         source = route.source.value
         destination = route.destination.value
-        path, route_cost = self.minimum_spanning_tree.find_min_power_path(source, destination, self.gas_price, broke_routes)
+        path = self.MST.route_characteristics(source, destination, broke, path=True)
 
-        if path is None:
-            route.utility = 0
+        return path
 
-        return path, route_cost
+    def kruskal(self):
+        new_graph, parent, rank = self.kruskal_initialisation()
 
+        for edge in self.edges:
+            edge_node1 = new_graph.nodes[edge.node1.value]
+            edge_node2 = new_graph.nodes[edge.node2.value]
 
-def dfs_min_power(visited, node, destination, min_power):
-    if node == destination:
-        return min_power
-    
-    visited.add(node)
+            new_edge = GraphEdge(edge_node1, edge_node2, edge.power, edge.distance)
+            node1 = find(parent, edge_node1)
+            node2 = find(parent, edge_node2)
 
-    for neighbour, edges in node.neighbours.items():
-        if neighbour not in visited:
-            old_min_power = min_power
-            min_power = max(min_power, edges[0].power)
-            result = dfs_min_power(visited, neighbour, destination, min_power)
-            if result != -1:
-                return result
-            else: 
-                min_power = old_min_power
+            if node1 != node2:
+                add_edge_to_Graph(new_graph, new_edge)
+                union(parent, rank, node1, node2)
 
-    return -1
+            if len(new_graph.edges) == len(self.nodes) - 1 :
+                new_graph.sort_edges()
 
+        self.MST = graph_to_tree(new_graph, self.station)
+        
+    def kruskal_initialisation(self):
+        new_graph = Graph()
+        parent = {}
+        rank = {}
 
-def dijkstra_with_power(source, peres, powers):
-    heap = FibonacciHeap()
-    heap.insertion(source, 0)
+        for node in self.nodes.values():
+            new_node = GraphNode(node.value)
+            rank[new_node] = 0
+            parent[new_node] = new_node
+            new_graph.nodes[new_node.value] = new_node
 
-    while heap.min_node:
-        node = heap.extract_min()
+        return new_graph, parent, rank
 
-        update_neighbours_power(node, heap, peres, powers)
-            
-def update_neighbours_power(node, heap, peres, powers):
-        for edges in node.neighbours.values():
-            for edge in edges:
-                neighbour = edge.find_neighbour_in_edge(node)
-
-                if (powers[neighbour] == -1
-                    or max(edge.power, powers[node]) < powers[neighbour]):
-                    peres[neighbour] = node
-                    powers[neighbour] = max(edge.power, powers[node])
-
-                    if heap.have_wrap(neighbour):
-                        heap.decrease_key(neighbour, powers[neighbour])
-
-                    else: 
-                        heap.insertion(neighbour, powers[neighbour])
-                                    
-
-def dijkstra_with_distance(source, peres, distances, truck_power):
-    heap = FibonacciHeap()
-    heap.insertion(source, 0)
-
-    while heap.min_node:
-        node = heap.extract_min()
-
-        update_neighbours_distance(node, heap, peres, distances, truck_power)
-
-def update_neighbours_distance(node, heap, peres, distances, truck_power):
-        for edges in node.neighbours.values():
-            for edge in edges:
-                if truck_power >= edge.power:
-                    neighbour = edge.find_neighbour_in_edge(node)
-
-                    if (distances[neighbour] == -1 
-                        or distances[neighbour] >= distances[node] + edge.distance):
-                        peres[neighbour] = node
-                        distances[neighbour] = distances[node] + edge.distance
-
-                        if heap.have_wrap(neighbour):
-                            heap.decrease_key(neighbour, distances[neighbour])
-                            
-                        else:
-                            heap.insertion(neighbour, distances[neighbour])
-            
-def get_path_from_peres(source, destination, peres):
-    path = collections.deque()
-    path.append(destination.value)
+        
+def get_path_from_parents(source, destination, parents):
+    path = [destination.value]
     
     node = destination
 
     while node != source: 
-        node = peres[node]
-
-        if node is None:
-            return []
-        
-        path.appendleft(node.value)
+        node = parents[node]  
+        path.append(node.value)
     
     return path
 
 
-def kruskal(graph):
-    new_graph = Graph()
-    parent = {}
-    rank = {}
+def dijkstra_with_power(source, parents, powers):
+    heap = FibonacciHeap()
+    heap.insertion(source, 0)
 
-    for edge in graph.edges:
-        first_value = edge.node1.value
-        if first_value not in new_graph.nodes:
-            node = GraphNode(first_value)
-            new_graph.nodes[first_value] = node 
-            rank[node] = 0 
-            parent[node] = node
+    while heap.min_node:
+        node = heap.extract_min()
+        update_neighbours_power(node, heap, parents, powers)
+            
+def update_neighbours_power(node, heap, parents, powers):
+    for neighbour, edges in node.neighbours.items():
+        for edge in edges:
+            if (powers[neighbour] == -1
+                or max(edge.power, powers[node]) < powers[neighbour]):
 
-        second_value = edge.node2.value
-        if second_value not in new_graph.nodes:
-            node = GraphNode(second_value)
-            new_graph.nodes[second_value] = node
-            rank[node] = 0
-            parent[node] = node
+                parents[neighbour] = node
+                powers[neighbour] = max(edge.power, powers[node])
 
-        new_edge = GraphEdge(new_graph.nodes[edge.node1.value], new_graph.nodes[edge.node2.value], edge.power, edge.distance)
-        node1 = find(parent, new_graph.nodes[edge.node1.value])
-        node2 = find(parent, new_graph.nodes[edge.node2.value])
+                if heap.have_wrap(neighbour):
+                    heap.decrease_key(neighbour, powers[neighbour])
 
-        if node1 != node2:
-            add_edge_to_Graph(new_graph, new_edge)
-            union(parent, rank, node1, node2)
+                else: 
+                    heap.insertion(neighbour, powers[neighbour])
+                                    
 
-        if len(new_graph.edges) == len(graph.nodes) - 1 :
-            new_graph.sort_edges()
-            return new_graph
-    
+def dijkstra_with_distance(source, parents, distances, truck_power):
+    heap = FibonacciHeap()
+    heap.insertion(source, 0)
+
+    while heap.min_node:
+        node = heap.extract_min()
+        update_neighbours_distance(node, heap, parents, distances, truck_power)
+
+def update_neighbours_distance(node, heap, parents, distances, truck_power):
+    for neighbour, edges in node.neighbours.items():
+        for edge in edges:
+            if (truck_power >= edge.power
+                and (distances[neighbour] == -1 
+                     or distances[neighbour] >= distances[node] + edge.distance)):
+                
+                parents[neighbour] = node
+                distances[neighbour] = distances[node] + edge.distance
+
+                if heap.have_wrap(neighbour):
+                    heap.decrease_key(neighbour, distances[neighbour])
+                    
+                else:
+                    heap.insertion(neighbour, distances[neighbour])
+            
+
 def find(parent, node):
     if parent[node] != node:
         parent[node] = find(parent, parent[node])
@@ -338,7 +283,6 @@ def find(parent, node):
     return parent[node]
     
 def union(parent, rank, node1, node2):
-
     if rank[node1] < rank[node2]:
         parent[node1] = node2
 
@@ -356,12 +300,15 @@ def graph_to_tree(graph, station_value):
     power = 0
 
     root = TreeNode(starting_node.value, power, distance)
+
     spanning_tree = Tree(root)
+    spanning_tree.gas_price = graph.gas_price
+    spanning_tree
     spanning_tree.nodes[root.value] = root
 
     stack = [(starting_node, root)]
     visited = set([starting_node])
-    epsilon = 0.001
+    epsilon = graph.broke_probability
 
     while stack:
         node, tree_node = stack.pop()
@@ -386,7 +333,7 @@ def estimated_time_processing_using_dijkstra(graph):
     count = 0
 
     for route in graph.routes:
-        graph.get_min_power_path_using_dijkstra(route.source.value, route.destination.value) 
+        graph.get_min_power_path_using_dijkstra(route.source, route.destination) 
         count += 1
 
         if count > 5:
@@ -403,8 +350,9 @@ def estimated_time_processing_from_MST(graph):
     count = 0
 
     for route in graph.routes:
-        broke_routes = False
-        graph.minimum_spanning_tree.find_min_power(route.source.value, route.destination.value, broke_routes)
+        source_value = route.source.value
+        destination_value = route.destination.value
+        graph.MST.route_characteristics(source_value,  destination_value, broke=False)
 
         count += 1
 
@@ -418,18 +366,21 @@ def estimated_time_processing_from_MST(graph):
     return f"It will take around {int(estimated_time)} seconds processing."             
      
 
-def graph_from_file(network_filename, route_filename, station, gas_price):
+def graph_from_file(network_filename, route_filename, station, gas_price, broke_probability):
     print("The graph is being created...")
     nb_nodes, edges_of_graph = open_network_file(network_filename)
+
     graph = Graph()
     graph.gas_price = gas_price
+    graph.broke_probability = broke_probability
+    graph.station = station
 
     set_nodes_to_graph(nb_nodes, graph)
     set_edges_to_graph(edges_of_graph, graph)
     graph.sort_edges()
 
-    graph.add_minimum_spanning_tree(station)
-    set_routes_to_graph(route_filename, graph, gas_price)
+    graph.kruskal()
+    set_routes_to_graph(route_filename, graph)
     graph.routes.sort(key=lambda route: route.utility, reverse=True)
 
     return graph
@@ -489,7 +440,7 @@ def set_edge_to_nodes(edge):
                 node2.neighbours[node1].append(edge)
                 node1.neighbours[node2].append(edge)
 
-def set_routes_to_graph(route_file, graph, gas_price):
+def set_routes_to_graph(route_file, graph):
     graph_routes = open_route_file(route_file)
 
     for line in graph_routes:
@@ -501,7 +452,7 @@ def set_routes_to_graph(route_file, graph, gas_price):
         
         new_route = GraphRoute(node1, node2, utility)
         graph.routes.append(new_route)
-        graph.associate_power_with_route(new_route, gas_price)
+        graph.set_route_characteristics(new_route)
 
 def open_route_file(filename):
     with open(filename, 'r') as file:
@@ -511,7 +462,7 @@ def open_route_file(filename):
         routes_of_graph = lines[1:]
 
         return routes_of_graph
-    
+
 
 def create_displayable_network(graph):
     G = nx.Graph()
@@ -535,18 +486,18 @@ def display_network(network, title):
     plt.close()
 
 def create_displayable_route(network, graph, route):
-    path_nodes = graph.get_min_power_path_from_MST(route, broke_routes=False)[0]
+    path = graph.get_min_power_path_from_MST(route, broke=False)
 
-    edges_from_path_nodes = []
+    edges_from_path = []
     for n1, n2 in network.edges():
-        if n1 in path_nodes and n2 in path_nodes:
-            index1 =  path_nodes.index(n1)
-            index2 = path_nodes.index(n2)
+        if n1 in path and n2 in path:
+            index1 =  path.index(n1)
+            index2 = path.index(n2)
             
             if index1 == index2-1 or index2 == index1-1:
-                edges_from_path_nodes.append((n1, n2))
+                edges_from_path.append((n1, n2))
 
-    route = network.edge_subgraph(edges_from_path_nodes)
+    route = network.edge_subgraph(edges_from_path)
 
     return route
 
