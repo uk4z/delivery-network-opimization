@@ -1,5 +1,3 @@
-import sys 
-sys.path.append("D:\Coding files\Delivery network\Fibonacci Heap")
 from fibonacci_heap import FibonacciHeap
 from tree import *
 
@@ -69,8 +67,10 @@ class GraphRoute:
         self.source = source
         self.destination = destination
         self.utility = utility 
+        self.cost = 0
+        self.expected_utility = 0
         self.available = True
-        self.power = -1
+        self.power = 0
 
 
 class Graph:
@@ -79,6 +79,7 @@ class Graph:
         self.edges = []
         self.minimum_spanning_tree = None
         self.routes = []
+        self.gas_price = 0
 
     def __str__(self):
         if not self.nodes.keys():
@@ -93,9 +94,9 @@ class Graph:
         
         return output
 
-    def add_minimum_spanning_tree(self):
+    def add_minimum_spanning_tree(self, station):
         minimum_graph = kruskal(self)
-        self.minimum_spanning_tree = graph_to_tree(minimum_graph)
+        self.minimum_spanning_tree = graph_to_tree(minimum_graph, station)
 
     def connected_components(self, node_value):
         node = self.nodes[node_value]
@@ -132,12 +133,27 @@ class Graph:
         for node in self.nodes.values():
             node.sort_edges_in_neighbours()
 
-    def associate_power_with_route(self, route):
+    def associate_power_with_route(self, route, broke_routes=True): 
         source = route.source.value
         destination = route.destination.value
-        power = self.minimum_spanning_tree.find_min_power(source, destination)
+        epsilon = 0.001
+        power, route_cost  = self.minimum_spanning_tree.find_min_power(source, destination, self.gas_price, broke_routes)
+        nb_edges = self.minimum_spanning_tree.nb_edges_in_route(source, destination)
+        probability_of_success = (1-epsilon)**nb_edges
+        probability_of_failure = 1-probability_of_success
 
-        route.power = power
+        route.expected_utility = route.utility*(probability_of_success - probability_of_failure)
+
+        if power is None:
+            route.utility = 0
+            route.power = 0
+
+        else:
+            route.power = power       
+        
+        route.cost = route_cost    
+        
+
 
     def get_path_given_power(self, source_value, destination_value, truck_power=float("inf")):
         source = self.nodes[source_value]
@@ -184,12 +200,15 @@ class Graph:
 
         return path, power
     
-    def get_min_power_path_from_MST(self, source, destination):
-        source = source.value
-        destination = destination.value
-        path = self.minimum_spanning_tree.find_min_power_path(source, destination)
+    def get_min_power_path_from_MST(self, route, broke_routes=True):
+        source = route.source.value
+        destination = route.destination.value
+        path, route_cost = self.minimum_spanning_tree.find_min_power_path(source, destination, self.gas_price, broke_routes)
 
-        return path
+        if path is None:
+            route.utility = 0
+
+        return path, route_cost
 
 
 def dfs_min_power(visited, node, destination, min_power):
@@ -331,20 +350,29 @@ def union(parent, rank, node1, node2):
         rank[node1] += 1
 
 
-def graph_to_tree(graph):
-    starting_node = graph.edges[0].node1
-    root = TreeNode(starting_node.value, 0)
+def graph_to_tree(graph, station_value):
+    starting_node = graph.nodes[station_value]
+    distance = 0
+    power = 0
+
+    root = TreeNode(starting_node.value, power, distance)
     spanning_tree = Tree(root)
     spanning_tree.nodes[root.value] = root
+
     stack = [(starting_node, root)]
     visited = set([starting_node])
+    epsilon = 0.001
 
     while stack:
         node, tree_node = stack.pop()
         for neighbour in node.neighbours.keys():
             if neighbour not in visited:
                 edge = node.neighbours[neighbour][0]
-                child = TreeNode(neighbour.value, edge.power, tree_node)
+                child = TreeNode(neighbour.value, edge.power, edge.distance, parent=tree_node)
+
+                if child.broke_with_probability(epsilon):
+                    child.broke = True
+
                 spanning_tree.nodes[neighbour.value] = child
                 tree_node.children.append(child)
                 stack.append((neighbour, child))
@@ -375,7 +403,9 @@ def estimated_time_processing_from_MST(graph):
     count = 0
 
     for route in graph.routes:
-        graph.minimum_spanning_tree.find_min_power(route.source.value, route.destination.value)
+        broke_routes = False
+        graph.minimum_spanning_tree.find_min_power(route.source.value, route.destination.value, broke_routes)
+
         count += 1
 
         if count > 5:
@@ -388,17 +418,18 @@ def estimated_time_processing_from_MST(graph):
     return f"It will take around {int(estimated_time)} seconds processing."             
      
 
-def graph_from_file(network_filename, route_filename):
+def graph_from_file(network_filename, route_filename, station, gas_price):
     print("The graph is being created...")
     nb_nodes, edges_of_graph = open_network_file(network_filename)
     graph = Graph()
+    graph.gas_price = gas_price
 
     set_nodes_to_graph(nb_nodes, graph)
     set_edges_to_graph(edges_of_graph, graph)
     graph.sort_edges()
 
-    graph.add_minimum_spanning_tree()
-    set_routes_to_graph(route_filename, graph)
+    graph.add_minimum_spanning_tree(station)
+    set_routes_to_graph(route_filename, graph, gas_price)
     graph.routes.sort(key=lambda route: route.utility, reverse=True)
 
     return graph
@@ -458,7 +489,7 @@ def set_edge_to_nodes(edge):
                 node2.neighbours[node1].append(edge)
                 node1.neighbours[node2].append(edge)
 
-def set_routes_to_graph(route_file, graph):
+def set_routes_to_graph(route_file, graph, gas_price):
     graph_routes = open_route_file(route_file)
 
     for line in graph_routes:
@@ -470,7 +501,7 @@ def set_routes_to_graph(route_file, graph):
         
         new_route = GraphRoute(node1, node2, utility)
         graph.routes.append(new_route)
-        graph.associate_power_with_route(new_route)
+        graph.associate_power_with_route(new_route, gas_price)
 
 def open_route_file(filename):
     with open(filename, 'r') as file:
@@ -503,11 +534,8 @@ def display_network(network, title):
     plt.savefig(title)
     plt.close()
 
-def create_displayable_route(network, graph, source_value, destination_value):
-    source = graph.nodes[source_value]
-    destination = graph.nodes[destination_value]
-
-    path_nodes = graph.get_min_power_path_from_MST(source, destination)
+def create_displayable_route(network, graph, route):
+    path_nodes = graph.get_min_power_path_from_MST(route, broke_routes=False)[0]
 
     edges_from_path_nodes = []
     for n1, n2 in network.edges():
