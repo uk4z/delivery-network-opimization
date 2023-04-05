@@ -65,10 +65,17 @@ Here, the code will be explained with particular interest on well known algorith
 
 ### Graph
 
-The graph file is composed of a main class `Graph` and 3 subclasses `GraphNode`, `GraphEdge`, `GraphRoute`. 
+The graph file is composed of a main class `Graph` and its 3 subclasses `GraphNode`, `GraphEdge`, `GraphRoute`. Furthermore, some functions are defined outside classes either being requested in class methods, participating to the construction of the graph or allowing the graph to be displayed. 
+
+In the network, each vertex is associated to a unique value which will be used to identify the vertex in different data structures and classes. 
+
+Below is a representation of *network.1.in*  
 
 <img src="https://user-images.githubusercontent.com/118286479/230018342-8f06984e-c095-4082-8037-bc1e246565cd.png" width="400" height="300">
 
+- `GraphEdge` represents a given edge of the network. It contains the two vertices of the edge (`node1` and `node2`), its `power` and `distance` as attributes. 
+- `GraphNode` represents a given vertex of the network. It contains the vertex `value` and its `neighbours`. The neighbours attribute is a dictionnary with vertex as keys and a list of every edges linking the two vertices as values.   
+- `GraphRoute` represents a given route of the network. It contains the two vertices (`source` and `destination`) of the route as well as its `utility` and mark it as `available` when a new route is created. 3 other attributes are initialised such as `power`, `cost` and `expected_utility`. `power` is the required power to complete the route. `cost` represents the price linked to the gas consumption if the route is covered. `expected_utility` caracterises the expected profit when covering the route considering that the route can be blocked with a certain probability.
 
 ### Tree
 
