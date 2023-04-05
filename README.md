@@ -69,9 +69,9 @@ The graph file is composed of a main class `Graph` and its 3 subclasses `GraphNo
 
 In the network, each vertex is associated to a unique value which will be used to identify the vertex in different data structures and classes. 
 
-Below is a representation of *network.1.in*  
+Below is a representation of *network.1.in* where *5* is the network station.
 
-<img src="https://user-images.githubusercontent.com/118286479/230018342-8f06984e-c095-4082-8037-bc1e246565cd.png" width="400" height="300">
+<img src="https://user-images.githubusercontent.com/118286479/230067770-00be6629-21b7-4333-917d-609798885416.png" width="400" height="300">
 
 - `GraphEdge` represents a given edge of the network. It contains the two vertices of the edge (`node1` and `node2`), its `power` and `distance` as attributes. 
 - `GraphNode` represents a given vertex of the network. It contains the vertex `value` and its `neighbours`. The neighbours attribute is a dictionnary with vertex as keys and a list of every edges linking the two vertices as values.   
