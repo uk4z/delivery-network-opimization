@@ -73,9 +73,73 @@ Below is a representation of *network.1.in* where *5* is the network station.
 
 <img src="https://user-images.githubusercontent.com/118286479/230067770-00be6629-21b7-4333-917d-609798885416.png" width="400" height="300">
 
+
+**Attributes description**
+
 - `GraphEdge` represents a given edge of the network. It contains the two vertices of the edge (`node1` and `node2`), its `power` and `distance` as attributes. 
 - `GraphNode` represents a given vertex of the network. It contains the vertex `value` and its `neighbours`. The neighbours attribute is a dictionnary with vertex as keys and a list of every edges linking the two vertices as values.   
 - `GraphRoute` represents a given route of the network. It contains the two vertices (`source` and `destination`) of the route as well as its `utility` and mark it as `available` when a new route is created. 3 other attributes are initialised such as `power`, `cost` and `expected_utility`. `power` is the required power to complete the route. `cost` represents the price linked to the gas consumption if the route is covered. `expected_utility` caracterises the expected profit when covering the route considering that the route can be blocked with a certain probability.
+- `Graph` contains all the information about the vertices, edges and routes which define the network in the attributes `nodes`, `edges`, `routes`. The `station` is also represented. `gas_price` defines the price per kilometer of gas consumption. Moreover, each edge has a certain probability to broke making it unable to use represented with `broke_probability` attribute. Last, `MST` attribute assign the minimum spanning tree (MST) of the graph weighted with power. The method to get the *MST* will be explained further later on. 
+
+**Methods description**
+
+Here not all methods will be covered because some of them are not particularly interesting and only participates to build a consistent network. Mainly, 2 methods will be overviewed: `get_path_given_power` and `kruskal`. 
+
+`get_path_given_power` allows the user to get the shortest path in the network from a source to a destination given the power of a truck. Therefore, `source`, `destination` and `truck_power` compose the arguments of this method. A default value of *float("inf")* is set to `truck_power` because the method should also work if we only want to find the shortest route between two vertices of the network without considering the power required. This method is an adaptation of *Dijksra's algorithm*. 
+
+
+```ruby
+def get_path_given_power(self, source, destination, truck_power=float("inf")):
+    parents = {node : None for node in self.nodes.values()}
+    distances = {node: 0 if node == source else -1 for node in self.nodes.values()}
+
+    if not source.is_connected_with_power(destination, truck_power):
+        return None
+
+    dijkstra_with_distance(source, parents, distances, truck_power)
+
+    distance = distances[destination]
+    path = get_path_from_parents(source, destination, parents)
+
+    return path, distance 
+```
+```ruby
+def dijkstra_with_distance(source, parents, distances, truck_power):
+    heap = FibonacciHeap()
+    heap.insertion(source, 0)
+
+    while heap.min_node:
+        node = heap.extract_min()
+        update_neighbours_distance(node, heap, parents, distances, truck_power)
+```
+
+```ruby
+def update_neighbours_distance(node, heap, parents, distances, truck_power):
+    for neighbour, edges in node.neighbours.items():
+        for edge in edges:
+            if (truck_power >= edge.power
+                and (distances[neighbour] == -1 
+                     or distances[neighbour] >= distances[node] + edge.distance)):
+                
+                parents[neighbour] = node
+                distances[neighbour] = distances[node] + edge.distance
+
+                if heap.have_wrap(neighbour):
+                    heap.decrease_key(neighbour, distances[neighbour])
+                    
+                else:
+                    heap.insertion(neighbour, distances[neighbour])
+```
+
+This adaptation of *Dijkstra's algorithm* uses a priority queue data structure which takes form as a *Fibonacci Heap*. This allows the decrease_key method to run in **O(1)** time complexity and the extract_min method in **O(log(n))** time complexity (where *n* represents the number of nodes in the heap). A full implementation is available in the `heap.py` file.
+
+Therefore, this algorithm runs in **O(|E| + |V|log(|V|)** (where *|E|* represents the number of edges and *|V|* the number of vertices).
+
+However, networks such as *network.4.in* have up to 200 000 vertices and 300 000 edges, hence *Dijkstra's algorithm* is no longer the best option to consider. A better option is to optimize the graph using *Kruskal's algorithm*. As part of the delivery network optimization, 
+
+
+
+
 
 ### Tree
 
