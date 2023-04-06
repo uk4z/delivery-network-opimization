@@ -131,9 +131,9 @@ def update_neighbours_distance(node, heap, parents, distances, truck_power):
                     heap.insertion(neighbour, distances[neighbour])
 ```
 
-This adaptation of *Dijkstra's algorithm* uses a priority queue data structure which takes form as a *Fibonacci Heap*. This allows the decrease_key method to run in **O(1)** time complexity and the extract_min method in **O(log(n))** time complexity (where *n* represents the number of nodes in the heap). A full implementation is available in the `heap.py` file and will be discuss further in the according section.
+This adaptation of *Dijkstra's algorithm* uses a priority queue data structure which takes form as a *Fibonacci Heap*. This allows the decrease_key method to run in **$O(1)$** time complexity and the extract_min method in **$O(log(n))$** time complexity (where *n* represents the number of nodes in the heap). A full implementation is available in the `heap.py` file and will be discuss further in the according section.
 
-Therefore, this algorithm runs in **O(|E| + |V|log|V|)** (where *|E|* represents the number of edges and *|V|* the number of vertices) time complexity. In the method, `distances`, `parents` and `heap` variables have a **O(|V|)** memory complexity which defines that of `get_path_given_power`.
+Therefore, this algorithm runs in **$O(|E| + |V|log|V|)$** (where *|E|* represents the number of edges and *|V|* the number of vertices) time complexity. In the method, `distances`, `parents` and `heap` variables have a **$O(|V|)$** memory complexity which defines that of `get_path_given_power`.
 
 Unlike common presentations of *Dijkstra's algorithm*, this adaptation start with a priority queue that contains only one item, and insert new items as they are discovered (decrease the key if it is in the queue, otherwise insert it). This allows to maintain a smaller priority queue in practice, speeding up the queue operations.
 
@@ -190,9 +190,13 @@ def union(parent, rank, node1, node2):
 
 As an adaptation of *Kruskal's algorithm*, the method is a *Union-Find* algorithm which allows to reach the highest ancestor with the `find` method and to unify two branches of the tree with the `union` method. The edges list is already sorted during the creation of the graph, therefore the method doesn't require to sort the list of edges before going through each edge. 
 
-*Kruskal's algorithm* can be shown to run in **O(|E|log|V|)** time complexity,  all with simple data structures. However, the `graph_to_tree` call will add another **O(|V|)** time complexity as it browses every vertices from the new graph to create the tree. Hence, the overall time complexity is **O(|V| + |E|log|V|)**. 
+*Kruskal's algorithm* can be shown to run in **$O(|E|log|V|)$** time complexity,  all with simple data structures. However, the `graph_to_tree` call will add another **$O(|V|)$** time complexity as it browses every vertices from the new graph to create the tree. Hence, the overall time complexity is **$O(|V|+|E|log|V|)$**. 
 
-Time complexity comparison between *Kruskal's algorithm* and *Dijkstra's algorithm*:
+Time complexity comparison between *Kruskal's algorithm* and *Dijkstra's algorithm* adaptations: 
+
+**$$ |V|+|E|log(|V|)-(|E|+|V|log(|V|) = (|V|-|E|)(1-log(|V|) \geq 0   $$**
+
+*Kruskal's algorithm* has a greater time complexity than *Dijkstra's algorithm* however both alogrithm have not the same purpose and the first one can save a lot amount of time for the goal of this project. Indeed, each route will have to be updated with the minimum power to cover them. By using *Dijkstra's algorithm* adaptation, each call will make **$O(|E| + |V|log|V|)$** time, therefore the total time of this update will be **$O(|R||E| + |R||V|log|V|))$** (where *|R|* is the number of routes). On the other hand, *Kruskal's algorithm* adaptation will be run only one time and then the time complexity of updating a route is **$O(|V|)$**. Therefore, the total cost of the update is **$O(|V|+|E|log|V|+|R||V|)$**. The overall time complexity is better in this case. While running the simulation, this improvement of efficiency can be observed:
 
 
 ### Tree
