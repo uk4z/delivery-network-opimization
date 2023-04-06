@@ -59,15 +59,13 @@ where:
   - `power` is the power of the truck
   - `cost` is the cost of the truck
   
-## Delivery network File
+## Delivery network Files
 
-Here, the code will be explained with particular interest on well known algorithm adapted for the purpose of this project. 
+Here, the code will be explained with particular interest on well known algorithm adapted for the purpose of this project. In the network, each vertex is associated to a unique value which will be used to identify the vertex in different data structures and classes. 
 
 ### Graph
 
-The graph file is composed of a main class `Graph` and its 3 subclasses `GraphNode`, `GraphEdge`, `GraphRoute`. Furthermore, some functions are defined outside classes either being requested in class methods, participating to the construction of the graph or allowing the graph to be displayed. 
-
-In the network, each vertex is associated to a unique value which will be used to identify the vertex in different data structures and classes. 
+The `graph.py` file is composed of a main class `Graph` and its 3 subclasses `GraphNode`, `GraphEdge`, `GraphRoute`. Furthermore, some functions are defined outside classes either being requested in class methods, participating to the construction of the graph or allowing the graph to be displayed. 
 
 Below is a representation of *network.1.in* where *5* is the network station.
 
@@ -196,11 +194,78 @@ Time complexity comparison between *Kruskal's algorithm* and *Dijkstra's algorit
 
 **$$ |V|+|E|log(|V|)-(|E|+|V|log(|V|) = (|V|-|E|)(1-log(|V|) \geq 0   $$**
 
-*Kruskal's algorithm* has a greater time complexity than *Dijkstra's algorithm* however both alogrithm have not the same purpose and the first one can save a lot amount of time for the goal of this project. Indeed, each route will have to be updated with the minimum power to cover them. By using *Dijkstra's algorithm* adaptation, each call will make **$O(|E| + |V|log|V|)$** time, therefore the total time of this update will be **$O(|R||E| + |R||V|log|V|))$** (where *|R|* is the number of routes). On the other hand, *Kruskal's algorithm* adaptation will be run only one time and then the time complexity of updating a route is **$O(|V|)$**. Therefore, the total cost of the update is **$O(|V|+|E|log|V|+|R||V|)$**. The overall time complexity is better in this case. While running the simulation, this improvement of efficiency can be observed:
-
+*Kruskal's algorithm* has a greater time complexity than *Dijkstra's algorithm* however both alogrithm have not the same purpose and the first one can save a lot amount of time for the goal of this project. Indeed, each route will have to be updated with the minimum power to cover them. By using *Dijkstra's algorithm* adaptation, each call will make **$O(|E| + |V|log|V|)$** time, therefore the total time of this update will be **$O(|R||E| + |R||V|log|V|))$** (where *|R|* is the number of routes). On the other hand, *Kruskal's algorithm* adaptation will be run only one time and then the time complexity of updating a route is **$O(|V|)$** (a detailed explanation is made on the *Tree* paragraph). Therefore, the total cost of the update is **$O(|V|+|E|log|V|+|R||V|)$**. The overall time complexity is better in this case. While running the simulation, this improvement of efficiency can be observed as the estimation of updating *network.2.in* is around 550 hours and *network.3.in* takes to long to estimate. On the other hand, the estimations for the different networks using *Kruskal's algorithm* adaptation range from 0 second to 76 seconds.
 
 ### Tree
 
+This is a well known data structure in python. The `tree.py` file is composed of a main class `Tree` and its subclass `TreeNode`. Some functions are defined outside classes being requested in class methods.  
+
+A representation of the tree goes as follow (the network station is the root of the tree):
+
 <img src="https://user-images.githubusercontent.com/118286479/230014823-cb4ccced-80b1-4272-90a4-e054db30d53f.png" width="129" height="147">
 
-This is a well known data structure in python. Such tree is
+***Attributes description***
+
+- `TreeNode` represents a node in the tree. It contains the node `value` representing the value of a unique vertex in the network. Furthermore, the tree data structure requires that each node of the tree can have `children` and a `parent`. A `degree` attribute keeps track of the node depth in the tree which is really useful to have a better efficiency in the methods presented below. A particularity of this implementation is the presence of attributes `power` and `distance`. Indeed, parents and children are neighbours in the network therefore the link between a tree node and its parent is actually an edge in the graph with its own power and distance. Those attributes are here to represent the characteristics of the edge (*in the tree represented above, **2** has **7** and **5** as neighbours, so the distance of the edge **2 -- 7** is stored in `distance` attribute of **7**)*. To add a more realistic constraint in the simulation, an attribute `broke` is set to represent the possibility that an edge in the network is bloked and the route can no longer be covered. 
+
+- `Tree` keeps track of the network `gas_price` and associate each node to its value in `nodes`. Moreover it contains the `root`of the tree. 
+
+***Methods description***
+
+The `Tree` class contains one main method `route_characteristics` which finds the route characteristics between two nodes using their lowest common ancestor (*LCA*). The method uses three other functions and methods that will be explained further in the following segment. `lowest_common_ancestor` is basically finding the *LCA* of two nodes. When two nodes share their *LCA*, `characteristics_until_lca` is calculating the path, distance and power from a node to its *LCA*. Therefore the algorithm has to iterate through each parent nodes. The `iterate_from_node_to_lca` method is doing such work as it represents basically a generator. 
+
+```ruby
+def lowest_common_ancestor(node1, node2):
+    while node1.degree > node2.degree:
+        node1 = node1.parent
+
+    while node2.degree > node1.degree:
+        node2 = node2.parent
+
+    while node1 != node2:
+        node1 = node1.parent
+        node2 = node2.parent
+
+    return node1
+```
+
+By keeping track of the nodes degree, the `lowest_common_ancestors* method runs efficiently because it iterates only through the parent nodes until the *LCA*.  
+
+```ruby
+def characteristics_until_lca(self, node, lca, broke=True):
+  path = []
+  power = 0
+  distance = 0
+  route_available = True
+  nodes = self.iterate_from_node_to_lca(node, lca)
+  for node in nodes:
+      if node.broke and broke:
+          route_available = False
+
+      if node != lca:
+          power = max(power, node.power)
+          distance += node.distance
+          path.append(node.value)
+
+  return path, power, distance, route_available
+```
+
+`characteristics_until_lca` is interesting in such a way that it uses a generator `iterate_from_node_to_lca` enabling the possibility to not store every data beforhand and reaching a better memory complexity. Such technique could be used in other methods to optimize their memory complexity.   
+
+```ruby
+def iterate_from_node_to_lca(self, start_node, lca):
+    node = start_node
+
+    while node != lca:    
+        yield node
+        node = node.parent
+
+    yield lca
+```
+
+From the methods shown above, the overall time complexity of getting route characteristics (including the minimum power) is **$O(|V|)$** from the minimum spanning tree of the graph. 
+
+### Delivery Network
+
+`delivery_network.py` will not be fully explained. However the purpose of creating such file was to get the best allocation of trucks (given in the truck.i.in files) with a given method. To find such allocation, an adaptation of a *genetic algorithm* is being used as it allows to find a good option quickly. The algorithm runs during a given time. 20 seconds is enough time to get a satisfying option for all networks.   
+
