@@ -75,7 +75,133 @@ In such data structure, a pointer is set to the node with the minimum key which 
 
 ***Attributes description***
 
--`FibonacciHeapNode` represents a node in the heap. Therefore as it is a priority queue data structure, `key` and `wrap` attributes are set to the class. An interesting point to observ is that the `wrap` can be anything like a string, a value or even a node of the graph. As explained above, each node has its own `child` and `parent`. Moreover,  the current implementation does not require to consider a list of children but only to keep tracks of the closest neighbours. Therefore, each node has a pointer `left` and a pointer `right` (the representation of the heap below shows the link between each nodes). The attributes `degree`and `mark` are used in `decrease_key` and `consolidate` methods.
+-`FibonacciHeapNode` represents a node in the heap. Therefore as it is a priority queue data structure, `key` and `wrap` attributes are set to the class. An interesting point to observe is that `wrap` can be anything like a string, a value or even a node of the graph. As explained above, each node has its own `child` and `parent`. Moreover,  the current implementation does not require to consider a list of children but only to keep tracks of the closest neighbours. Therefore, each node has a pointer `left` and a pointer `right` (the representation of the heap below shows the link between each nodes). The attributes `degree`and `mark` are used in `decrease_key` and `consolidate` methods. The `degree` attribute caracterises the depth of a node in the heap and `mark` indicates if a parent node has lost one of its child.  
+
+<img src="https://user-images.githubusercontent.com/118286479/230621885-da87df87-6d37-472b-9145-6725d57a2962.png" width="600" height="300">
+
+-`FibonacciHeap` represents the heap. A pointer is set to the `min_node` which means the node with the lowest key and keeps track of the `root_list` which contains all nodes without parents. Also the attribute `nb_nodes` stores the number of nodes in the heap as it changes with each call of `insertion` and `extract_min`. 
+
+***Methods description***
+
+We will consider only two methods `decrease_key` and `extract_min` as they are used in an adaptation of *Dijkstra's algorithm*. The goal here is to express the time complexity of both methods because it will impact the overall complexity of *Dijkstra's algorithm*.
+
+-`decrease_key` is a method to decrease the key of a given node already set in the heap. Depending of the how decreased the key is, it will impact its position in the heap. If the heap property becomes violated (the new key is smaller than the key of the parent), the node is `cut` from its parent.
+
+```ruby
+def decrease_key(self, wrap, new_key):
+    node = self._get_node_by_wrap(wrap)
+
+    if new_key >= node.key:
+        return 
+
+    node.key = new_key
+    parent = node.parent
+
+    if (parent is not None) and node.key < parent.key:
+        self._cut(node, parent)
+        self._cascade_cut(parent)
+
+    if node.key < self.min_node.key:
+        self.min_node = node
+```
+
+```ruby 
+def _cut(self, node, parent):
+    parent.remove_from_child_list(node)
+    parent.degree -= 1
+    self.merge_with_root_list(node)
+    node.mark = False 
+    node.parent = None
+```
+
+```ruby
+def _cascade_cut(self, node):
+    parent = node.parent
+
+    if parent is not None:
+        if not node.mark :
+            node.mark = True
+
+        else:
+            self._cut(node, parent)
+            self._cascade_cut(parent)
+```
+
+In the operation `decrease_key`, the parent is marked if it does not belong to the root list. If it has been marked already, it is cut as well and its parent is marked. We continue upwards until we reach either the root or an unmarked node (`cascade_cut`).  In the process say k nodes are added to the root list. The actual time to perform the cutting was **$O(k)$**, therefore the amortized running time is constant which means **$O(1)$**.
+
+-`extract_min` deletes and returns the `min_node` of the heap. Therefore, the heap has to be updated with a new `min_node` and the structure will also change a bit. The calls of the method `consolidate` is here to update the structure of the tree. To resume, `extract_min` operates in three phases: remove `min_node`, `consolidate` the heap and find the new node with minimum key.
+
+```ruby
+def extract_min(self):
+    extract_node = self.min_node
+
+    if extract_node is not None:
+        if extract_node.child is not None:
+            child = extract_node.child
+
+            while True:
+                other_child = child.right
+                self.merge_with_root_list(child)
+                child.parent = None
+
+                if other_child == extract_node.child:
+                    break
+
+                child = other_child
+
+        self.remove_from_root_list(extract_node)
+
+        if extract_node == extract_node.right:
+            self.min_node = self.root_list = None
+
+        else:
+            self.min_node = extract_node.right
+            self.consolidate()
+
+        self.nb_nodes -= 1
+
+        return extract_node.wrap
+```
+
+```ruby
+def consolidate(self):
+    MAX_DEGREE = 2 * int(math.log2(self.nb_nodes)) + 1
+    root_list = [None] * (MAX_DEGREE + 1)
+
+    node = self.min_node
+    while True:
+        degree = node.degree
+
+        while root_list[degree] is not None:
+            neighbour = root_list[degree]
+
+            if neighbour.key < node.key:
+                neighbour, node = node, neighbour
+
+            self.heap_link(node, neighbour)
+            root_list[degree] = None
+            degree += 1
+
+        root_list[degree] = node
+
+        if node == self.min_node:
+            break
+
+        node = node.right
+
+    for node in root_list:
+        if node is not None:
+            if node.key < self.min_node.key:
+                self.min_node = node
+```
+
+`heap_link` will create a parent-child link between two nodes. It means that after having consolidated the heap, no nodes of same degree can be in the root list. 
+
+After removing `min_node`,  its children will become roots of new trees. If the number of children was d, it takes time **$O(d)$** to process all new roots. Therefore, the amortized running time of this phase is **$O(d) = O(log(n))$**.
+
+To complete the `extract_min` operation, we need to update the pointer to the root with minimum key. Unfortunately there may be up to n roots we need to check. In the second phase we therefore decrease the number of roots by successively linking together roots of the same degree. When two roots u and v have the same degree, we make one of them a child of the other so that the one with the smaller key remains the root. Its degree will increase by one. This is repeated until every root has a different degree. To find trees of the same degree efficiently we use an array of length O(log n) in which we keep a pointer to one root of each degree. When a second root is found of the same degree, the two are linked and the array is updated. The actual running time is O(log n + m) where m is the number of roots at the beginning of the second phase. At the end we will have at most O(log n) roots (because each has a different degree). Therefore, the difference in the potential function from before this phase to after it is: O(log n) − m, and the amortized running time is then at most O(log n + m) + c(O(log n) − m). With a sufficiently large choice of c, this simplifies to O(log n).
+
+In the third phase we check each of the remaining roots and find the minimum. This takes O(log n) time and the potential does not change. The overall amortized running time of extract minimum is therefore O(log n).
 
 
 
