@@ -195,13 +195,13 @@ def consolidate(self):
                 self.min_node = node
 ```
 
-`heap_link` will create a parent-child link between two nodes. It means that after having consolidated the heap, no nodes of same degree can be in the root list. 
+`heap_link` will create a parent-child link between two nodes. It means that after having consolidated the heap, nodes of same degree can not both be in the root list. 
 
-After removing `min_node`,  its children will become roots of new trees. If the number of children was d, it takes time **$O(d)$** to process all new roots. Therefore, the amortized running time of this phase is **$O(d) = O(log(n))$**.
+After removing `min_node`,  its children will become roots of new trees. If the number of children was d, it takes time **$O(d)$** to process all new roots. Therefore, the amortized running time of this phase is **$O(d) = O(log(n))$** (where *n* is the number of nodes in the heap).
 
-To complete the `extract_min` operation, we need to update the pointer to the root with minimum key. Unfortunately there may be up to n roots we need to check. In the second phase we therefore decrease the number of roots by successively linking together roots of the same degree. When two roots u and v have the same degree, we make one of them a child of the other so that the one with the smaller key remains the root. Its degree will increase by one. This is repeated until every root has a different degree. To find trees of the same degree efficiently we use an array of length O(log n) in which we keep a pointer to one root of each degree. When a second root is found of the same degree, the two are linked and the array is updated. The actual running time is O(log n + m) where m is the number of roots at the beginning of the second phase. At the end we will have at most O(log n) roots (because each has a different degree). Therefore, the difference in the potential function from before this phase to after it is: O(log n) − m, and the amortized running time is then at most O(log n + m) + c(O(log n) − m). With a sufficiently large choice of c, this simplifies to O(log n).
+The second phase (`consolidate`) decreases the number of roots by successively linking together roots of the same degree. To find trees of the same degree efficiently, se an array of length **$O(log(n))$** is used. The actual running time is **O(log(n) + m)$** (where *m* is the number of roots at the beginning of the second phase). This simplifies to **$O(log(n))$** operation.
 
-In the third phase we check each of the remaining roots and find the minimum. This takes O(log n) time and the potential does not change. The overall amortized running time of extract minimum is therefore O(log n).
+In the third phase we check each of the remaining roots and find the minimum. This takes **$O(log(n))$** time. The overall amortized running time of extract minimum is therefore **$O(log(n))$**.
 
 
 
@@ -336,7 +336,19 @@ Time complexity comparison between *Kruskal's algorithm* and *Dijkstra's algorit
 
 **$$ |V|+|E|log(|V|)-(|E|+|V|log(|V|) = (|V|-|E|)(1-log(|V|) \geq 0   $$**
 
-*Kruskal's algorithm* has a greater time complexity than *Dijkstra's algorithm* however both alogrithm have not the same purpose and the first one can save a lot amount of time for the goal of this project. Indeed, each route will have to be updated with the minimum power to cover them. By using *Dijkstra's algorithm* adaptation, each call will make **$O(|E| + |V|log|V|)$** time, therefore the total time of this update will be **$O(|R||E| + |R||V|log|V|))$** (where *|R|* is the number of routes). On the other hand, *Kruskal's algorithm* adaptation will be run only one time and then the time complexity of updating a route is **$O(|V|)$** (a detailed explanation is made on the *Tree* paragraph). Therefore, the total cost of the update is **$O(|V|+|E|log|V|+|R||V|)$**. The overall time complexity is better in this case. While running the simulation, this improvement of efficiency can be observed as the estimation of updating *network.2.in* is around 550 hours and *network.3.in* takes to long to estimate. On the other hand, the estimations for the different networks using *Kruskal's algorithm* adaptation range from 0 second to 76 seconds.
+*Kruskal's algorithm* has a greater time complexity than *Dijkstra's algorithm* however both alogrithm have not the same purpose and the first one can save a lot amount of time for the goal of this project. Indeed, each route will have to be updated with the minimum power to cover them. By using *Dijkstra's algorithm* adaptation, each call will make **$O(|E| + |V|log|V|)$** time, therefore the total time of this update will be **$O(|R||E| + |R||V|log|V|))$** (where *|R|* is the number of routes). On the other hand, *Kruskal's algorithm* adaptation will be run only one time and then the time complexity of updating a route is **$O(|V|)$** (a detailed explanation is made on the *Tree* paragraph). Therefore, the total cost of the update is **$O(|V|+|E|log|V|+|R||V|)$**. The overall time complexity is better in this case. While running the simulation, this improvement of efficiency can be observed as the estimation of updating *network.2.in* is around 550 hours and *network.3.in* takes to long to estimate. On the other hand, the estimations for the different networks using *Kruskal's algorithm* adaptation range from 0 second to 85 seconds:
+
+|    Network    |  Performance  |
+| ------------- | ------------- |
+| network.1.in  |0 s|
+| network.2.in  |4 s|
+| network.3.in  |85 s|
+| network.4.in  |81 s|
+| network.5.in  |14 s|
+| network.6.in  |58 s|
+| network.7.in  |77 s|
+| network.8.in  |73 s|
+
 
 ### Tree
 
@@ -410,6 +422,46 @@ From the methods shown above, the overall time complexity of getting route chara
 
 ### Delivery Network
 
-`delivery_network.py` will not be fully explained. However the purpose of creating such file was to get the best allocation of trucks (given in the truck.i.in files) with a given method. To find such allocation, an adaptation of a *genetic algorithm* is being used as it allows to find a good option quickly. The algorithm runs during a given time. 20 seconds is enough time to get a satisfying option for all networks.  
+`delivery_network.py` is the last file to fully structure the network. For now, the three previous files only focus on the graph construction. This last one completes the delivery network as it implements the collection of trucks. The purpose of creating such file is to get the best allocation of trucks (given in the *truck.i.in* files). To find such allocation, an adaptation of a *genetic algorithm* is being used as it allows to find a good option in a chosen time.
 
+The file is composed of the main class `DeliveryNetwork` and its subclass `Trucks`. Indirectly, `DeliveryNetwork` inherit of the `Graph` class because a delivery network is defined by its collection of trucks and the graph containing possible routes to cover. 
 
+Below is the representation of the delivery network with the graph and the actual routes taken by trucks to minimize the cost of delivery. 
+
+| network.1.in | network.1.in with only used roads |
+| ------------- | ------------- |
+| <img src="https://user-images.githubusercontent.com/118286479/230647660-e6e702c5-5258-4fe6-a0e2-7fbd9d0bcbd9.png" width="400" height="300"> | <img src="https://user-images.githubusercontent.com/118286479/230649365-72c59f6f-d745-42eb-9e3f-a58c0bd239f7.png" width="400" height="300"> |
+
+***Attributes description***
+
+- `Truck` contains all the information about a truck type. Its `cost` and `power` as well as all the assigned `routes` covered bu such type of truck. 
+- `DeliveryNetwork` contains all the information about the delivery network, the different types of `trucks` and the `graph`. Attributes `station` and `gas_price` complete the class attribute.  
+
+***Methods description***
+
+All methods a functions work together to solve the following problem: how to get the optimal allocation of trucks to maximize the profit with a given budget.
+
+The first step was to assigned the optimal type of truck to each roads. The assignement is done considering routes utility in descending order to prioritize the most profitable routes (if a type of truck is able to cover a route, then the route is added to the truck attribute `routes`.
+
+The next step is to find the best allocation of trucks. In this step, a *genetic algorithm* is implemented. Say, there are ***10*** routes to cover. For each truck, there are two outcomes: either the truck is chosen (value ***1***) in the allocation or not (value ***0***). An allocation is represented by a list of zeros and ones:
+ ***0 1 0 0 1 1 1 1 0*** . From this data, the function `calculate_profit` can return the total profit of such allocation. The *genetic algorithm* works as follow:
+ 
+ - create a set of random solutions called **generation**.
+ - keep the best solution of the **generation**.
+ - create a new generation from the fromer one based on `mutation` (randomly change a value in a given solution), `tournament_selection` (keep only the better solution between two given solutions) and `crossover` (takes the first part of one solution and the second part of an other).
+ - repeat the process.
+ 
+ After a given time, the program returns the best solution it has found.
+ 
+ Here are the results for different networks using *trucks.2.in* as trucks collection:
+
+| network | profit | expected profit | 
+| ------- | ------ | --------------- |
+| network.1.in | 675 755 | 672 880 |
+| network.2.in |  250 991 463 |  489 714 452 |
+| network.3.in | 313 369 203 | 2 167 721 333 | 
+| network.4.in | | |
+| network.5.in | | |
+| network.6.in | | |
+| network.7.in | | |
+| network.8.in | | |
