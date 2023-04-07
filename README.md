@@ -63,6 +63,22 @@ where:
 
 Here, the code will be explained with particular interest on well known algorithm adapted for the purpose of this project. In the network, each vertex is associated to a unique value which will be used to identify the vertex in different data structures and classes. 
 
+### Fibonacci heap
+
+The `heap.py`file contains the implementation of a *Fibonacci heap*. This heap data structure is the most efficient priority queue especially with `decrease_key` and `extract_min` methods. For the purpose of this project, the *Fibonacci heap* will be used in an adapatation of *Dijkstra's algorithm* to find the shortest route between two vertices in the graph. 
+
+The file is composed of a main class `FibonacciHeap` and its subclass `FibonacciHeapNode`. A function is defined outside classes and is called by methods. 
+
+In such data structure, a pointer is set to the node with the minimum key which is part of the roots list. Working as a heap data structure, every children have higher keys than their parents.
+
+<img src="https://user-images.githubusercontent.com/118286479/230576019-72241f07-8422-4e60-ac2c-58411cd041ef.png" width="600" height="300">
+
+***Attributes description***
+
+-`FibonacciHeapNode` represents a node in the heap. Therefore as it is a priority queue data structure, `key` and `wrap` attributes are set to the class. An interesting point to observ is that the `wrap` can be anything like a string, a value or even a node of the graph. As explained above, each node has its own `child` and `parent`. Moreover,  the current implementation does not require to consider a list of children but only to keep tracks of the closest neighbours. Therefore, each node has a pointer `left` and a pointer `right` (the representation of the heap below shows the link between each nodes). The attributes `degree`and `mark` are used in `decrease_key` and `consolidate` methods.
+
+
+
 ### Graph
 
 The `graph.py` file is composed of a main class `Graph` and its 3 subclasses `GraphNode`, `GraphEdge`, `GraphRoute`. Furthermore, some functions are defined outside classes either being requested in class methods, participating to the construction of the graph or allowing the graph to be displayed. 
@@ -202,7 +218,7 @@ This is a well known data structure in python. The `tree.py` file is composed of
 
 A representation of the tree goes as follow (the network station is the root of the tree):
 
-<img src="https://user-images.githubusercontent.com/118286479/230014823-cb4ccced-80b1-4272-90a4-e054db30d53f.png" width="129" height="147">
+<img src="https://user-images.githubusercontent.com/118286479/230014823-cb4ccced-80b1-4272-90a4-e054db30d53f.png" width="300" height="400">
 
 ***Attributes description***
 
@@ -212,7 +228,7 @@ A representation of the tree goes as follow (the network station is the root of 
 
 ***Methods description***
 
-The `Tree` class contains one main method `route_characteristics` which finds the route characteristics between two nodes using their lowest common ancestor (*LCA*). The method uses three other functions and methods that will be explained further in the following segment. `lowest_common_ancestor` is basically finding the *LCA* of two nodes. When two nodes share their *LCA*, `characteristics_until_lca` is calculating the path, distance and power from a node to its *LCA*. Therefore the algorithm has to iterate through each parent nodes. The `iterate_from_node_to_lca` method is doing such work as it represents basically a generator. 
+The `Tree` class contains one main method `route_characteristics` which finds the route characteristics between two nodes using their lowest common ancestor (*LCA*). The method uses three other functions and methods that will be explained further in the following segment. `lowest_common_ancestor` is basically finding the *LCA* of two nodes. When two nodes share their *LCA*, `characteristics_until_lca` is calculating the path, distance and power from a node to its *LCA*. Therefore the algorithm has to iterate through each parent nodes. The `iterate_from_node_to_lca` method is doing such work as it is basically a generator. 
 
 ```ruby
 def lowest_common_ancestor(node1, node2):
@@ -265,7 +281,9 @@ def iterate_from_node_to_lca(self, start_node, lca):
 
 From the methods shown above, the overall time complexity of getting route characteristics (including the minimum power) is **$O(|V|)$** from the minimum spanning tree of the graph. 
 
+
 ### Delivery Network
 
-`delivery_network.py` will not be fully explained. However the purpose of creating such file was to get the best allocation of trucks (given in the truck.i.in files) with a given method. To find such allocation, an adaptation of a *genetic algorithm* is being used as it allows to find a good option quickly. The algorithm runs during a given time. 20 seconds is enough time to get a satisfying option for all networks.   
+`delivery_network.py` will not be fully explained. However the purpose of creating such file was to get the best allocation of trucks (given in the truck.i.in files) with a given method. To find such allocation, an adaptation of a *genetic algorithm* is being used as it allows to find a good option quickly. The algorithm runs during a given time. 20 seconds is enough time to get a satisfying option for all networks.  
+
 
