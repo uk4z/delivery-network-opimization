@@ -1,27 +1,10 @@
 from fibonacci_heap import FibonacciHeap
 from tree import *
-
-import collections
-
 import time
 
 import networkx as nx
 import matplotlib.pyplot as plt
 
-
-class GraphEdge:
-    def __init__(self, node1, node2, power=0, distance=1):
-        self.node1 = node1
-        self.node2 = node2
-        self.power = power
-        self.distance = distance
-    
-    def __str__(self):
-        source = self.node1.value
-        destination = self.node2.value
-
-        return f"{source} --- {destination}"
-    
 
 class GraphNode:
     def __init__(self, value, neighbours=None):
@@ -48,6 +31,7 @@ class GraphNode:
                 if neighbour not in visited and node.can_reach_neighbour(neighbour, truck_power):
                     stack.append(neighbour)
 
+        
         return False
 
     def can_reach_neighbour(self, neighbour, truck_power):
@@ -61,6 +45,20 @@ class GraphNode:
         return False
 
 
+class GraphEdge:
+    def __init__(self, node1, node2, power=0, distance=1):
+        self.node1 = node1
+        self.node2 = node2
+        self.power = power
+        self.distance = distance
+    
+    def __str__(self):
+        source = self.node1.value
+        destination = self.node2.value
+
+        return f"{source} --- {destination}"
+    
+
 class GraphRoute:
     def __init__(self, source, destination, utility):
         self.source = source
@@ -70,7 +68,6 @@ class GraphRoute:
         self.cost = 0
         self.power = 0
         self.available = True
-        
 
 
 class Graph:
@@ -133,22 +130,18 @@ class Graph:
         destination = route.destination.value
         epsilon = self.broke_probability
 
-        power, route_cost, nb_edges  = self.MST.route_characteristics(source, destination, broke, 
+        power, route_cost, nb_edges, route_available  = self.MST.route_characteristics(source, destination, broke, 
                                                                       power=True, 
                                                                       cost=True, 
                                                                       number_of_edges=True)
         
-        success_proba = (1-epsilon)**nb_edges
-        failure_proba = 1-success_proba
-
-        route.expected_utility = route.utility*(success_proba - failure_proba)
-
-        if nb_edges == -1:
+        if not route_available:
             route.available = False
-            
+
         route.power = power       
-        route.cost = route_cost    
-        
+        route.cost = route_cost 
+        route.expected_utility = (route.utility-route.cost)*(1-epsilon)**nb_edges
+                   
     def get_path_given_power(self, source, destination, truck_power=float("inf")):
         parents = {node : None for node in self.nodes.values()}
         distances = {node: 0 if node == source else -1 for node in self.nodes.values()}
@@ -177,12 +170,13 @@ class Graph:
     def get_min_power_path_from_MST(self, route, broke=True):
         source = route.source.value
         destination = route.destination.value
-        path = self.MST.route_characteristics(source, destination, broke, path=True)
+        result = self.MST.route_characteristics(source, destination, broke, path=True)
 
-        return path
+        return result
 
     def kruskal(self):
         new_graph, parent, rank = self.kruskal_initialisation()
+        new_graph.broke_probability = self.broke_probability
 
         for edge in self.edges:
             edge_node1 = new_graph.nodes[edge.node1.value]
@@ -305,24 +299,24 @@ def graph_to_tree(graph, station_value):
     spanning_tree.gas_price = graph.gas_price
     spanning_tree
     spanning_tree.nodes[root.value] = root
+    degree = 0
 
-    stack = [(starting_node, root)]
+    stack = [(starting_node, root, degree )]
     visited = set([starting_node])
     epsilon = graph.broke_probability
 
     while stack:
-        node, tree_node = stack.pop()
+        node, tree_node, degree = stack.pop()
         for neighbour in node.neighbours.keys():
             if neighbour not in visited:
                 edge = node.neighbours[neighbour][0]
                 child = TreeNode(neighbour.value, edge.power, edge.distance, parent=tree_node)
-
-                if child.broke_with_probability(epsilon):
-                    child.broke = True
+                child.degree = degree+1
+                child.broke_with_probability(epsilon)
 
                 spanning_tree.nodes[neighbour.value] = child
                 tree_node.children.append(child)
-                stack.append((neighbour, child))
+                stack.append((neighbour, child, degree+1))
                 visited.add(neighbour)
 
     return spanning_tree
@@ -341,9 +335,9 @@ def estimated_time_processing_using_dijkstra(graph):
 
     end = time.perf_counter()
     mean = (end-start)/10
-    estimated_time = (mean * len(graph.routes))/3600
+    estimated_time = (mean * len(graph.routes))
     
-    return f"It will take around {estimated_time} hours processing."
+    return f"It will take around {estimated_time} seconds processing."
 
 def estimated_time_processing_from_MST(graph):
     start = time.perf_counter()
@@ -396,6 +390,7 @@ def open_network_file(network):
 
         return nb_nodes, edges_of_graph
 
+
 def set_nodes_to_graph(nb_nodes, graph):
     for value in range(1, nb_nodes + 1):
         graph.nodes[value] = GraphNode(value) 
@@ -404,6 +399,7 @@ def get_data_from_line(line):
     raw_data = line.split(' ')
     
     return [int(data) for data in raw_data]
+
 
 def set_edges_to_graph(graph_edges, graph):
     for line in graph_edges:
@@ -440,19 +436,20 @@ def set_edge_to_nodes(edge):
                 node2.neighbours[node1].append(edge)
                 node1.neighbours[node2].append(edge)
 
+
 def set_routes_to_graph(route_file, graph):
     graph_routes = open_route_file(route_file)
-
     for line in graph_routes:
         route = get_data_from_line(line)
         node1_value, node2_value, utility = route
-
         node1 = graph.nodes[node1_value]
         node2 = graph.nodes[node2_value]
-        
+         
         new_route = GraphRoute(node1, node2, utility)
         graph.routes.append(new_route)
         graph.set_route_characteristics(new_route)
+
+    graph.routes.sort(key=lambda route: route.expected_utility, reverse=True)
 
 def open_route_file(filename):
     with open(filename, 'r') as file:
@@ -477,20 +474,31 @@ def create_displayable_network(graph):
 
     return G
 
-def display_network(network, title):
+def display_network(network, station, title):
     node_positions = nx.spring_layout(network, seed=42)
 
+    node_colors = []
+    station_color = "red"
+    default_node_color = "lightblue"
+
+    for node in network.nodes():
+        if node == station:
+            node_colors.append(station_color)
+
+        else:
+            node_colors.append(default_node_color)
+
     plt.figure()
-    nx.draw(network, node_positions, with_labels=True, node_color='lightblue', font_weight='bold')
+    nx.draw(network, node_positions, with_labels=True, node_color=node_colors, font_weight='bold')
     plt.savefig(title)
     plt.close()
 
 def create_displayable_route(network, graph, route):
-    path = graph.get_min_power_path_from_MST(route, broke=False)
-
+    path = graph.get_min_power_path_from_MST(route, broke=False)[0]
     edges_from_path = []
+
     for n1, n2 in network.edges():
-        if n1 in path and n2 in path:
+        if (n1 in path) and (n2 in path):
             index1 =  path.index(n1)
             index2 = path.index(n2)
             
