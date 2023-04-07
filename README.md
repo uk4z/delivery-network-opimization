@@ -453,15 +453,27 @@ The next step is to find the best allocation of trucks. In this step, a *genetic
  
  After a given time, the program returns the best solution it has found.
  
- Here are the results for different networks using *trucks.2.in* as trucks collection:
+ Here are the results for different networks using *trucks.2.in* as trucks collection (during 30 seconds):
 
 | network | profit | expected profit | 
 | ------- | ------ | --------------- |
 | network.1.in | 675 755 | 672 880 |
 | network.2.in |  250 991 463 |  489 714 452 |
 | network.3.in | 313 369 203 | 2 167 721 333 | 
-| network.4.in | | |
-| network.5.in | | |
-| network.6.in | | |
-| network.7.in | | |
-| network.8.in | | |
+| network.4.in | 1 180 442 105 | 2 180 983 601 |
+| network.5.in | 174 184 798 | 437 784 096 |
+| network.6.in | 249 649 831  | 2 132 073 377 |
+| network.7.in | 214 195 479 | 2 131 892 657 |
+| network.8.in | 254 584 049  | 2 194 546 414 |
+
+As shown the results above, the method using the *genetic algorithm* gives lower profit than the expected profit. This can be explained by two main flaws: running the method during 30 seconds might not be enough to get a satisfying value and not running it enough times might make the result not consistent.
+
+The *expected profit* is calculated as the sum of the expected_utility of each route:
+
+**$E(utility) = (utility - cost)(1-\varepsilon)^n$** and **$cost = distance*p_g$**
+
+$\varepsilon$ represents the probability of an edge to broke.
+
+$p_g$ represents the gas price of the network.
+
+In conclusion, the expected profit should be more relevant to consider in order to choose the best allocation of trucks even though the *genetic algorithm* is an interesting method to solve this variant of the *knapsack problem*.
